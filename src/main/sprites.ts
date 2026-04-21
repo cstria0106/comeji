@@ -39,6 +39,12 @@ interface RgbaColor extends RgbColor {
   readonly alpha: number;
 }
 
+interface HsvColor {
+  readonly hue: number;
+  readonly saturation: number;
+  readonly value: number;
+}
+
 interface SpriteSheetDefinition {
   readonly id: string;
   readonly name: string;
@@ -136,6 +142,7 @@ export function getAppearanceSettings(): AppearanceSettings {
     activeSpriteSheetId,
     spriteSheets: spriteSheets.map((sheet) => toSpriteSheetSettings(sheet, activeSpriteSheetId)),
     spriteSheetDataUrl: createSpriteSheetDataUrl(activeSpriteSheet),
+    rawSpriteSheetDataUrl: createRawSpriteSheetDataUrl(activeSpriteSheet),
   };
 }
 
@@ -340,21 +347,68 @@ function normalizeChromaThreshold(threshold: number | undefined): number {
   return Math.min(MaxChromaKeyThreshold, Math.max(MinChromaKeyThreshold, Math.round(threshold)));
 }
 
+function rgbToHsv(color: RgbColor): HsvColor {
+  const red = color.red / 255;
+  const green = color.green / 255;
+  const blue = color.blue / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+
+  if (delta === 0) {
+    return {
+      hue: 0,
+      saturation: max === 0 ? 0 : delta / max,
+      value: max,
+    };
+  }
+
+  let hue: number;
+  if (max === red) {
+    hue = ((green - blue) / delta) % 6;
+  } else if (max === green) {
+    hue = (blue - red) / delta + 2;
+  } else {
+    hue = (red - green) / delta + 4;
+  }
+
+  return {
+    hue: (hue * 60 + 360) % 360,
+    saturation: max === 0 ? 0 : delta / max,
+    value: max,
+  };
+}
+
+function getHueDistance(first: number, second: number): number {
+  const distance = Math.abs(first - second);
+  return Math.min(distance, 360 - distance);
+}
+
 function getChromaDistance(pixel: RgbColor, chromaKey: RgbColor): number {
-  return Math.max(Math.abs(pixel.red - chromaKey.red), Math.abs(pixel.green - chromaKey.green), Math.abs(pixel.blue - chromaKey.blue));
+  const pixelHsv = rgbToHsv(pixel);
+  const keyHsv = rgbToHsv(chromaKey);
+  const hueDistance = getHueDistance(pixelHsv.hue, keyHsv.hue) / 180;
+  const saturationDistance = Math.abs(pixelHsv.saturation - keyHsv.saturation);
+  const valueDistance = Math.abs(pixelHsv.value - keyHsv.value);
+  const rgbDistance =
+    Math.hypot(pixel.red - chromaKey.red, pixel.green - chromaKey.green, pixel.blue - chromaKey.blue) /
+    Math.hypot(255, 255, 255);
+
+  return Math.min(255, (hueDistance * 0.52 + saturationDistance * 0.23 + valueDistance * 0.1 + rgbDistance * 0.15) * 255);
 }
 
 function createChromaMask(pixel: RgbaColor, chromaKey: RgbColor, threshold: number): { readonly alphaMultiplier: number } {
   const distance = getChromaDistance(pixel, chromaKey);
+  const effectiveThreshold = Math.max(6, threshold * 1.35);
 
-  if (distance <= threshold) {
+  if (distance <= effectiveThreshold) {
     return {
       alphaMultiplier: 0,
     };
   }
 
-  const smoothness = Math.max(MinChromaKeySmoothness, threshold * 0.75);
-  const softEdgeEnd = threshold + smoothness;
+  const smoothness = Math.max(MinChromaKeySmoothness, effectiveThreshold * 1.35);
+  const softEdgeEnd = effectiveThreshold + smoothness;
 
   if (distance >= softEdgeEnd) {
     return {
@@ -362,9 +416,9 @@ function createChromaMask(pixel: RgbaColor, chromaKey: RgbColor, threshold: numb
     };
   }
 
-  const t = smoothStep((distance - threshold) / smoothness);
+  const t = smoothStep((distance - effectiveThreshold) / smoothness);
   return {
-    alphaMultiplier: t,
+    alphaMultiplier: t * t,
   };
 }
 
@@ -503,6 +557,28 @@ function createSpriteSheetDataUrl(spriteSheet: SpriteSheetDefinition): string {
   if (image.isEmpty() || size.width === 0 || size.height === 0) {
     if (spriteSheet.path !== DefaultSpriteSheetPath) {
       return createSpriteSheetDataUrl({
+        id: DefaultSpriteSheetId,
+        name: "character.png",
+        path: DefaultSpriteSheetPath,
+        chromaKey: DefaultSpriteChromaKey,
+        chromaThreshold: DefaultChromaKeyThreshold,
+        isDefault: true,
+      });
+    }
+
+    return "";
+  }
+
+  return image.toDataURL();
+}
+
+function createRawSpriteSheetDataUrl(spriteSheet: SpriteSheetDefinition): string {
+  const image = nativeImage.createFromPath(spriteSheet.path);
+  const size = image.getSize();
+
+  if (image.isEmpty() || size.width === 0 || size.height === 0) {
+    if (spriteSheet.path !== DefaultSpriteSheetPath) {
+      return createRawSpriteSheetDataUrl({
         id: DefaultSpriteSheetId,
         name: "character.png",
         path: DefaultSpriteSheetPath,

@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { CharacterState, PointerSample, SpeechMessage } from "../../shared/character-state";
 import { createCharacterLayout, DefaultCharacterScale } from "../../shared/character-layout";
 import type { AppearanceSettings } from "../../shared/shimeji-api";
+import { getCachedChromaKeyedSpriteSheet } from "./chroma-key";
 
 export function CharacterView(): React.JSX.Element {
   const stageRef = useRef<HTMLElement>(null);
@@ -26,8 +27,10 @@ export function CharacterView(): React.JSX.Element {
       return;
     }
 
-    void window.shimeji.getAppearanceSettings().then((settings) => {
+    void window.shimeji.getAppearanceSettings().then(async (settings) => {
       applyCharacterLayoutVars(settings);
+      const spriteSheetDataUrl = await getCachedChromaKeyedSpriteSheet(settings);
+      document.documentElement.style.setProperty("--character-sprite-sheet-url", `url("${spriteSheetDataUrl}")`);
     });
 
     const unbindCharacterState = bindCharacterState(sprite);

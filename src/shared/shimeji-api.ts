@@ -37,6 +37,7 @@ export interface AppearanceSettings {
   readonly activeSpriteSheetId: string;
   readonly spriteSheets: readonly SpriteSheetSettings[];
   readonly spriteSheetDataUrl: string;
+  readonly rawSpriteSheetDataUrl: string;
 }
 
 export interface AppearanceSettingsInput {
