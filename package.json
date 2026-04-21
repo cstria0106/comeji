@@ -1,0 +1,38 @@
+{
+  "name": "shimeji",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main/main/main.js",
+  "scripts": {
+    "dev": "pnpm run build:main && concurrently -k \"node .tools/dev-server.mjs\" \"wait-on .shimeji/dev-server.json && electron . --dev\"",
+    "build": "pnpm run build:main && vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "start": "pnpm run build && electron .",
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.3",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "concurrently": "^9.2.1",
+    "electron": "^41.2.1",
+    "tailwindcss": "^4.2.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.8",
+    "wait-on": "^9.0.5"
+  },
+  "dependencies": {
+    "@openai/codex": "^0.121.0",
+    "@openai/codex-sdk": "^0.121.0",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.8.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0"
+  }
+}
