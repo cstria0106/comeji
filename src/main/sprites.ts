@@ -20,6 +20,7 @@ const SpriteSheetFrameCount = 4;
 const DefaultChromaKeyThreshold = 8;
 const MinChromaKeyThreshold = 0;
 const MaxChromaKeyThreshold = 64;
+const MinChromaKeySmoothness = 4;
 
 export interface CharacterAabb {
   readonly x: number;
@@ -32,6 +33,10 @@ interface RgbColor {
   readonly red: number;
   readonly green: number;
   readonly blue: number;
+}
+
+interface RgbaColor extends RgbColor {
+  readonly alpha: number;
 }
 
 interface SpriteSheetDefinition {
@@ -85,9 +90,13 @@ export function calculateCharacterAabb(characterLayout: CharacterLayout): Charac
         green === undefined ||
         red === undefined ||
         alpha === undefined ||
-        alpha === 0 ||
-        isChromaKeyPixel({ red, green, blue }, chromaKey, activeSpriteSheet.chromaThreshold)
+        alpha === 0
       ) {
+        continue;
+      }
+
+      const mask = createChromaMask({ red, green, blue, alpha }, chromaKey, activeSpriteSheet.chromaThreshold);
+      if (mask.alphaMultiplier === 0) {
         continue;
       }
 
@@ -331,12 +340,45 @@ function normalizeChromaThreshold(threshold: number | undefined): number {
   return Math.min(MaxChromaKeyThreshold, Math.max(MinChromaKeyThreshold, Math.round(threshold)));
 }
 
-function isChromaKeyPixel(pixel: RgbColor, chromaKey: RgbColor, threshold: number): boolean {
-  return (
-    Math.abs(pixel.red - chromaKey.red) <= threshold &&
-    Math.abs(pixel.green - chromaKey.green) <= threshold &&
-    Math.abs(pixel.blue - chromaKey.blue) <= threshold
-  );
+function getChromaDistance(pixel: RgbColor, chromaKey: RgbColor): number {
+  return Math.max(Math.abs(pixel.red - chromaKey.red), Math.abs(pixel.green - chromaKey.green), Math.abs(pixel.blue - chromaKey.blue));
+}
+
+function createChromaMask(pixel: RgbaColor, chromaKey: RgbColor, threshold: number): { readonly alphaMultiplier: number } {
+  const distance = getChromaDistance(pixel, chromaKey);
+
+  if (distance <= threshold) {
+    return {
+      alphaMultiplier: 0,
+    };
+  }
+
+  const smoothness = Math.max(MinChromaKeySmoothness, threshold * 0.75);
+  const softEdgeEnd = threshold + smoothness;
+
+  if (distance >= softEdgeEnd) {
+    return {
+      alphaMultiplier: 1,
+    };
+  }
+
+  const t = smoothStep((distance - threshold) / smoothness);
+  return {
+    alphaMultiplier: t,
+  };
+}
+
+function smoothStep(value: number): number {
+  const clamped = Math.min(1, Math.max(0, value));
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+function decontaminateChroma(value: number, chromaValue: number, alphaMultiplier: number): number {
+  if (alphaMultiplier <= 0) {
+    return value;
+  }
+
+  return Math.round(Math.min(255, Math.max(0, (value - chromaValue * (1 - alphaMultiplier)) / alphaMultiplier)));
 }
 
 function getSpriteSheetDefinitions(config: ShimejiConfig): SpriteSheetDefinition[] {
@@ -435,8 +477,19 @@ function createProcessedSpriteSheetImage(path: string, chromaKey: string, chroma
       continue;
     }
 
-    if (isChromaKeyPixel({ red, green, blue }, key, chromaThreshold)) {
+    const alpha = bitmap[offset + 3] ?? 0;
+    const mask = createChromaMask({ red, green, blue, alpha }, key, chromaThreshold);
+
+    if (mask.alphaMultiplier === 0) {
       bitmap[offset + 3] = 0;
+      continue;
+    }
+
+    if (mask.alphaMultiplier < 1) {
+      bitmap[offset] = decontaminateChroma(blue, key.blue, mask.alphaMultiplier);
+      bitmap[offset + 1] = decontaminateChroma(green, key.green, mask.alphaMultiplier);
+      bitmap[offset + 2] = decontaminateChroma(red, key.red, mask.alphaMultiplier);
+      bitmap[offset + 3] = Math.round(alpha * mask.alphaMultiplier);
     }
   }
 

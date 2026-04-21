@@ -64,10 +64,13 @@ function SettingsView(): React.JSX.Element {
   const [scale, setScale] = useState(DefaultCharacterScale);
   const [spriteSheets, setSpriteSheets] = useState<readonly SpriteSheetSettings[]>([]);
   const [activeSpriteSheetId, setActiveSpriteSheetId] = useState("default");
+  const [draftChromaKey, setDraftChromaKey] = useState("#ff008e");
+  const [draftChromaThreshold, setDraftChromaThreshold] = useState(8);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [busyAction, setBusyAction] = useState<string | undefined>(window.shimeji === undefined ? "preload" : undefined);
   const scalePercent = useMemo(() => `${Math.round(scale * 100)}%`, [scale]);
   const activeSpriteSheet = useMemo(() => spriteSheets.find((sheet) => sheet.id === activeSpriteSheetId), [activeSpriteSheetId, spriteSheets]);
+  const chromaDraftChanged = activeSpriteSheet !== undefined && (draftChromaKey !== activeSpriteSheet.chromaKey || draftChromaThreshold !== activeSpriteSheet.chromaThreshold);
 
   const loadSessions = useCallback(async (): Promise<void> => {
     if (window.shimeji === undefined) {
@@ -90,6 +93,15 @@ function SettingsView(): React.JSX.Element {
     setSpriteSheets(settings.spriteSheets);
     setActiveSpriteSheetId(settings.activeSpriteSheetId);
   }
+
+  useEffect(() => {
+    if (activeSpriteSheet === undefined) {
+      return;
+    }
+
+    setDraftChromaKey(activeSpriteSheet.chromaKey);
+    setDraftChromaThreshold(activeSpriteSheet.chromaThreshold);
+  }, [activeSpriteSheet]);
 
   useEffect(() => {
     if (window.shimeji === undefined) {
@@ -220,26 +232,27 @@ function SettingsView(): React.JSX.Element {
     }
   }
 
-  async function updateSpriteSheet(sheet: SpriteSheetSettings, changes: Partial<Pick<SpriteSheetSettings, "chromaKey" | "chromaThreshold">>): Promise<void> {
-    if (window.shimeji === undefined) {
+  async function saveSpriteSheetChroma(): Promise<void> {
+    if (window.shimeji === undefined || activeSpriteSheet === undefined) {
       return;
     }
 
-    const nextChromaKey = changes.chromaKey ?? sheet.chromaKey;
-    const nextChromaThreshold = changes.chromaThreshold ?? sheet.chromaThreshold;
+    setBusyAction(`sprite-update-${activeSpriteSheet.id}`);
     setStatusText("스프라이트 배경색을 조정하고 있어요.");
     try {
       applyAppearanceSettings(
         await window.shimeji.updateSpriteSheet({
-          id: sheet.id,
-          chromaKey: nextChromaKey,
-          chromaThreshold: nextChromaThreshold,
+          id: activeSpriteSheet.id,
+          chromaKey: draftChromaKey,
+          chromaThreshold: draftChromaThreshold,
         }),
       );
       setStatusText("스프라이트 설정을 저장했어요.");
     } catch (error) {
       setStatusText("스프라이트 설정을 저장하지 못했어요.");
       console.error(error);
+    } finally {
+      setBusyAction(undefined);
     }
   }
 
@@ -539,11 +552,16 @@ function SettingsView(): React.JSX.Element {
                               id="sprite-chroma-key"
                               className="size-6 rounded border border-slate-200 bg-transparent"
                               type="color"
-                              value={isHexColor(activeSpriteSheet.chromaKey) ? activeSpriteSheet.chromaKey : "#ff008e"}
+                              value={isHexColor(draftChromaKey) ? draftChromaKey : "#ff008e"}
                               disabled={controlsDisabled}
-                              onChange={(event) => void updateSpriteSheet(activeSpriteSheet, { chromaKey: event.currentTarget.value })}
+                              onChange={(event) => setDraftChromaKey(event.currentTarget.value)}
                             />
-                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{activeSpriteSheet.chromaKey}</span>
+                            <input
+                              className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none"
+                              value={draftChromaKey}
+                              disabled={controlsDisabled}
+                              onChange={(event) => setDraftChromaKey(event.currentTarget.value)}
+                            />
                           </div>
                         </div>
                         <div>
@@ -551,7 +569,7 @@ function SettingsView(): React.JSX.Element {
                             <label className="text-xs font-medium text-slate-600" htmlFor="sprite-chroma-threshold">
                               Threshold
                             </label>
-                            <span className="text-xs font-semibold text-slate-600">{activeSpriteSheet.chromaThreshold}</span>
+                            <span className="text-xs font-semibold text-slate-600">{draftChromaThreshold}</span>
                           </div>
                           <input
                             id="sprite-chroma-threshold"
@@ -560,10 +578,16 @@ function SettingsView(): React.JSX.Element {
                             min={0}
                             max={64}
                             step={1}
-                            value={activeSpriteSheet.chromaThreshold}
+                            value={draftChromaThreshold}
                             disabled={controlsDisabled}
-                            onChange={(event) => void updateSpriteSheet(activeSpriteSheet, { chromaThreshold: Number(event.currentTarget.value) })}
+                            onChange={(event) => setDraftChromaThreshold(Number(event.currentTarget.value))}
                           />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-slate-500">{chromaDraftChanged ? "저장하면 캐릭터와 미리보기에 반영돼요." : "저장된 크로마키 설정이에요."}</span>
+                          <Button type="button" className="h-8 px-2 text-xs" disabled={controlsDisabled || !chromaDraftChanged} onClick={() => void saveSpriteSheetChroma()}>
+                            저장
+                          </Button>
                         </div>
                       </div>
                     : <EmptyState>스프라이트를 선택하면 미리보기를 보여줄게요.</EmptyState>}
