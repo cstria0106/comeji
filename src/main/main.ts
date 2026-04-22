@@ -214,17 +214,6 @@ async function createCharacterWindow(): Promise<void> {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "Pause",
-      click: () => walker?.stop(),
-    },
-    {
-      label: "Walk",
-      click: () => walker?.start(),
-    },
-    {
-      type: "separator",
-    },
-    {
       label: "Settings",
       click: () => {
         void openSettingsWindow();

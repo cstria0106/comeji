@@ -14,7 +14,7 @@ import type { ShimejiConfig } from "./responder.js";
 
 const DefaultSpriteSheetId = "default";
 const DefaultSpriteSheetPath = join(process.cwd(), "src", "renderer", "src", "assets", "character.png");
-const SpriteSheetFrameCount = 4;
+const SpriteSheetFrameCount = 6;
 
 export interface CharacterAabb {
   readonly x: number;

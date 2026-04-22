@@ -298,7 +298,6 @@ function SettingsView(): React.JSX.Element {
             <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-4">
               <SectionCard
                 title="Codex"
-                description="로그인 상태와 대화 세션을 확인해요."
                 className="h-auto"
                 action={
                   <div className="flex flex-wrap gap-2">
@@ -370,7 +369,7 @@ function SettingsView(): React.JSX.Element {
               </SectionCard>
 
               <section className="grid min-h-0 grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-4">
-                <SectionCard title="세션 목록" description="현재 작업 폴더의 Codex 세션이에요." className="min-h-0">
+                <SectionCard title="세션 목록" className="min-h-0">
                   <SessionList
                     sessions={sessions}
                     selectedSessionId={selectedSessionId}
@@ -380,7 +379,7 @@ function SettingsView(): React.JSX.Element {
                     onDelete={(sessionId) => void archiveSession(sessionId)}
                   />
                 </SectionCard>
-                <SectionCard title="세션 내용" description="선택한 세션의 최근 대화를 보여줘요." className="min-h-0">
+                <SectionCard title="세션 내용" className="min-h-0">
                   <SessionDetail messages={messages} selectedSessionId={selectedSessionId} />
                 </SectionCard>
               </section>
@@ -388,7 +387,7 @@ function SettingsView(): React.JSX.Element {
           </Tabs.Content>
 
           <Tabs.Content value="character" className="min-h-0 flex-1">
-            <SectionCard title="사용자 추가 지침" description="모드별 고정 지침 뒤에 덧붙일 내용을 적어요.">
+            <SectionCard title="사용자 추가 지침">
               <textarea
                 className="min-h-56 w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 spellCheck={false}
@@ -408,7 +407,6 @@ function SettingsView(): React.JSX.Element {
           <Tabs.Content value="appearance" className="min-h-0 flex-1">
             <SectionCard
               title="외형"
-              description="캐릭터 크기와 스프라이트 시트를 조정해요."
               action={<span className="rounded-md bg-slate-100 px-2.5 py-1 text-sm font-semibold text-slate-700">{scalePercent}</span>}
             >
               <div className="space-y-6">

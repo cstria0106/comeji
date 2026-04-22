@@ -18,7 +18,6 @@ export function SettingsTab(props: { readonly value: string; readonly icon: Reac
 
 export function SectionCard(props: {
   readonly title: string;
-  readonly description: string;
   readonly action?: React.ReactNode;
   readonly className?: string;
   readonly children: React.ReactNode;
@@ -28,7 +27,6 @@ export function SectionCard(props: {
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold tracking-normal text-slate-950">{props.title}</h2>
-          <p className="mt-1 text-sm text-slate-500">{props.description}</p>
         </div>
         {props.action}
       </div>
