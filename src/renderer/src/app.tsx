@@ -24,6 +24,7 @@ import { Button, ModeTooltip, SectionCard, SessionDetail, SessionList, SettingsT
 import "./styles.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
+const SessionAutoRefreshMs = 15_000;
 
 if (app === null) {
   throw new Error("Missing app root");
@@ -66,19 +67,25 @@ function SettingsView(): React.JSX.Element {
   const [busyAction, setBusyAction] = useState<string | undefined>(window.shimeji === undefined ? "preload" : undefined);
   const scalePercent = useMemo(() => `${Math.round(scale * 100)}%`, [scale]);
 
-  const loadSessions = useCallback(async (): Promise<void> => {
+  const loadSessions = useCallback(async (showLoading = true): Promise<void> => {
     if (window.shimeji === undefined) {
       return;
     }
 
-    setLoadingSessions(true);
+    if (showLoading) {
+      setLoadingSessions(true);
+    }
     try {
       setSessions(await window.shimeji.listCodexSessions());
     } catch (error) {
-      setStatusText("세션을 불러오지 못했어요.");
+      if (showLoading) {
+        setStatusText("세션을 불러오지 못했어요.");
+      }
       console.error(error);
     } finally {
-      setLoadingSessions(false);
+      if (showLoading) {
+        setLoadingSessions(false);
+      }
     }
   }, []);
 
@@ -104,6 +111,18 @@ function SettingsView(): React.JSX.Element {
     });
 
     void loadSessions();
+  }, [loadSessions]);
+
+  useEffect(() => {
+    if (window.shimeji === undefined) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadSessions(false);
+    }, SessionAutoRefreshMs);
+
+    return () => window.clearInterval(intervalId);
   }, [loadSessions]);
 
   async function checkStatus(): Promise<void> {

@@ -144,12 +144,14 @@ type AppServerOptions = {
 };
 
 const EmptyMessageResponse = "말을 걸어주면 대답할게.";
-const ConfigFileName = "shimeji.config.json";
 const DefaultDataDirectory = ".shimeji";
+const ConfigFileName = "shimeji.config.json";
+const DefaultConfigFile = join(DefaultDataDirectory, ConfigFileName);
 const DefaultStateFile = join(DefaultDataDirectory, "chat-state.json");
 const DefaultCodexCommandPath = join(process.cwd(), "node_modules", ".bin", "codex.cmd");
 const MaxShownSessions = 100;
 const MaxShownSessionMessages = 80;
+const MaxSessionListPages = 20;
 const CharacterModeApprovalPolicy: ApprovalPolicy = "never";
 const AgentModeApprovalPolicy: ApprovalPolicy = "on-request";
 const TurnTimeoutMs = 45_000;
@@ -435,14 +437,27 @@ class CodexAppServerResponder implements ManagedChatResponder {
 
   public async listThreads(): Promise<CodexSessionSummary[]> {
     const knownThreadIds = new Set(this.getKnownThreadIds());
-    const result = await this.client.request("thread/list", {
-      limit: MaxShownSessions,
-      sortKey: "updated_at",
-      cwd: this.workingDirectory,
-      sourceKinds: ["appServer"],
-      archived: false,
-    });
-    const threads = getThreadList(result).filter((thread) => knownThreadIds.has(thread.id));
+    const threads: AppServerThread[] = [];
+    let cursor: string | null = null;
+    let pageCount = 0;
+
+    while (threads.length < knownThreadIds.size && pageCount < MaxSessionListPages) {
+      const result = await this.client.request("thread/list", {
+        cursor,
+        limit: MaxShownSessions,
+        sortKey: "updated_at",
+        archived: false,
+      });
+      const page = getThreadListPage(result);
+      threads.push(...page.threads.filter((thread) => knownThreadIds.has(thread.id)));
+      cursor = page.nextCursor;
+      pageCount += 1;
+
+      if (cursor === null) {
+        break;
+      }
+    }
+
     const activeThreadId = this.getThreadId();
 
     return threads.map((thread) => ({
@@ -948,12 +963,18 @@ function createStatusMessage(item: { readonly type?: unknown }): SpeechMessage |
   return undefined;
 }
 
-function getThreadList(result: unknown): AppServerThread[] {
+function getThreadListPage(result: unknown): { readonly threads: AppServerThread[]; readonly nextCursor: string | null } {
   if (!isRecord(result) || !Array.isArray(result.data)) {
-    return [];
+    return {
+      threads: [],
+      nextCursor: null,
+    };
   }
 
-  return result.data.filter(isAppServerThread);
+  return {
+    threads: result.data.filter(isAppServerThread),
+    nextCursor: typeof result.nextCursor === "string" ? result.nextCursor : null,
+  };
 }
 
 function getThreadRead(result: unknown): AppServerThread {
@@ -1037,7 +1058,7 @@ function windowSetTimeout(callback: () => void, timeoutMs: number): void {
 
 function readConfig(): ShimejiConfig {
   try {
-    const configPath = join(process.cwd(), ConfigFileName);
+    const configPath = join(process.cwd(), DefaultConfigFile);
     const rawConfig = readFileSync(configPath, "utf8");
     return JSON.parse(rawConfig) as ShimejiConfig;
   } catch (error) {
