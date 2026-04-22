@@ -45,6 +45,9 @@ const api: ShimejiApi = {
   endDrag(sample: PointerSample) {
     ipcRenderer.send("drag-end", sample);
   },
+  reportSpeechBubbleHeight(height: number) {
+    ipcRenderer.send("speech-layout", height);
+  },
   openChat() {
     ipcRenderer.send("chat-open");
   },

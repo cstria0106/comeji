@@ -1,6 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import * as Tooltip from "@radix-ui/react-tooltip";
-import { Info, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import React from "react";
 import { twMerge } from "tailwind-merge";
 import type { CodexSessionMessage, CodexSessionSummary } from "../../shared/shimeji-api";
@@ -28,42 +27,13 @@ export function SectionCard(props: {
     <section className={twMerge("flex h-full flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm", props.className)}>
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold tracking-normal text-slate-950">{props.title}</h2>
-            <InfoTooltip text={props.description} />
-          </div>
+          <h2 className="text-base font-semibold tracking-normal text-slate-950">{props.title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{props.description}</p>
         </div>
         {props.action}
       </div>
       {props.children}
     </section>
-  );
-}
-
-export function InfoTooltip(props: { readonly text: string }): React.JSX.Element {
-  return (
-    <Tooltip.Root>
-      <Tooltip.Trigger asChild>
-        <button
-          type="button"
-          className="inline-flex size-5 items-center justify-center rounded-md text-slate-400 outline-none transition hover:bg-slate-100 hover:text-slate-700 focus:ring-4 focus:ring-slate-200"
-          aria-label={props.text}
-        >
-          <Info className="size-3.5" />
-        </button>
-      </Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Content
-          side="top"
-          align="center"
-          sideOffset={6}
-          className="z-50 max-w-72 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 shadow-md"
-        >
-          {props.text}
-          <Tooltip.Arrow className="fill-white" />
-        </Tooltip.Content>
-      </Tooltip.Portal>
-    </Tooltip.Root>
   );
 }
 
@@ -85,8 +55,20 @@ export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement> & { 
 
 export function modeButtonClass(active: boolean): string {
   return twMerge(
-    "h-8 rounded-[6px] px-3 text-sm font-medium text-slate-600 outline-none transition disabled:pointer-events-none disabled:opacity-50",
+    "h-8 w-full rounded-[6px] px-3 text-sm font-medium text-slate-600 outline-none transition hover:text-slate-950 focus:ring-4 focus:ring-slate-200 disabled:pointer-events-none disabled:opacity-50",
     active && "bg-white text-slate-950 shadow-sm",
+  );
+}
+
+export function ModeTooltip(props: { readonly id: string; readonly text: string }): React.JSX.Element {
+  return (
+    <span
+      id={props.id}
+      role="tooltip"
+      className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-max max-w-64 -translate-x-1/2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-700 opacity-0 shadow-md transition group-hover:opacity-100 group-focus-within:opacity-100"
+    >
+      {props.text}
+    </span>
   );
 }
 

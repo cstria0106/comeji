@@ -58,7 +58,7 @@ body {
   left: clamp(8px, calc(var(--character-render-x) + var(--character-size) / 2 - min(340px, calc(100vw - 16px)) / 2), calc(100vw - min(340px, calc(100vw - 16px)) - 8px));
   right: auto;
   top: auto;
-  bottom: calc(100vh - max(44px, calc(var(--character-render-y) + var(--character-size) * 0.16)));
+  bottom: calc(100vh - max(44px, calc(var(--character-render-y) + var(--character-size) * 0.16)) + 24px);
   z-index: 2;
   box-sizing: border-box;
   width: min(340px, calc(100vw - 16px));

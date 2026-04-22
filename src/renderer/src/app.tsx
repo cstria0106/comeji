@@ -1,5 +1,4 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   Bot,
   CheckCircle2,
@@ -21,7 +20,7 @@ import {
 import type { AppearanceSettings, CodexSessionMessage, CodexSessionSummary, PromptSettings, SpriteSheetSettings } from "../../shared/shimeji-api";
 import { CharacterView } from "./character-view";
 import { ChatView } from "./chat-view";
-import { Button, InfoTooltip, SectionCard, SessionDetail, SessionList, SettingsTab, StatusBox, modeButtonClass } from "./settings-ui";
+import { Button, ModeTooltip, SectionCard, SessionDetail, SessionList, SettingsTab, StatusBox, modeButtonClass } from "./settings-ui";
 import "./styles.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -275,8 +274,7 @@ function SettingsView(): React.JSX.Element {
   const controlsDisabled = busyAction !== undefined;
 
   return (
-    <Tooltip.Provider delayDuration={250}>
-      <main className="min-h-full bg-slate-50 text-slate-950">
+    <main className="min-h-full bg-slate-50 text-slate-950">
       <div className="mx-auto flex h-full max-w-5xl flex-col gap-5 px-6 py-5">
         <header className="flex items-start justify-between gap-4">
           <div>
@@ -322,25 +320,30 @@ function SettingsView(): React.JSX.Element {
                   <div>
                     <label className="text-sm font-medium text-slate-700">모드</label>
                     <div className="mt-2 grid grid-cols-2 rounded-md bg-slate-100 p-1">
-                      <button
-                        type="button"
-                        className={modeButtonClass(codexMode === "character")}
-                        disabled={controlsDisabled}
-                        onClick={() => setCodexMode("character")}
-                      >
-                        캐릭터
-                      </button>
-                      <button
-                        type="button"
-                        className={modeButtonClass(codexMode === "agent")}
-                        disabled={controlsDisabled}
-                        onClick={() => setCodexMode("agent")}
-                      >
-                        에이전트
-                      </button>
-                    </div>
-                    <div className="mt-2">
-                      <InfoTooltip text={codexMode === "agent" ? "workspace-write로 워크스페이스 안에서 작업해요." : "read-only로 짧게 대화해요."} />
+                      <span className="group relative block">
+                        <button
+                          type="button"
+                          className={modeButtonClass(codexMode === "character")}
+                          disabled={controlsDisabled}
+                          aria-describedby="character-mode-tooltip"
+                          onClick={() => setCodexMode("character")}
+                        >
+                          캐릭터
+                        </button>
+                        <ModeTooltip id="character-mode-tooltip" text="read-only로 짧게 대화해요." />
+                      </span>
+                      <span className="group relative block">
+                        <button
+                          type="button"
+                          className={modeButtonClass(codexMode === "agent")}
+                          disabled={controlsDisabled}
+                          aria-describedby="agent-mode-tooltip"
+                          onClick={() => setCodexMode("agent")}
+                        >
+                          에이전트
+                        </button>
+                        <ModeTooltip id="agent-mode-tooltip" text="workspace-write로 워크스페이스 안에서 작업해요." />
+                      </span>
                     </div>
                   </div>
                   <div>
@@ -394,7 +397,7 @@ function SettingsView(): React.JSX.Element {
                 onChange={(event) => setUserInstructions(event.currentTarget.value)}
               />
               <div className="mt-4 flex items-center justify-between gap-3">
-                <InfoTooltip text="캐릭터 모드와 에이전트 모드 모두 이 추가 지침을 함께 사용해요." />
+                <p className="text-sm text-slate-500">캐릭터 모드와 에이전트 모드 모두 이 추가 지침을 함께 사용해요.</p>
                 <Button type="button" disabled={controlsDisabled} onClick={() => void saveCodexSettings()}>
                   지침 저장
                 </Button>
@@ -433,9 +436,9 @@ function SettingsView(): React.JSX.Element {
                 <div className="min-h-0">
                   <div className="min-h-0">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
+                      <div>
                         <span className="text-sm font-medium text-slate-700">스프라이트 시트</span>
-                        <InfoTooltip text="업로드한 파일은 프로젝트의 .shimeji/sprites 폴더에 따로 저장돼요." />
+                        <p className="mt-1 text-xs text-slate-500">업로드한 파일은 프로젝트의 .shimeji/sprites 폴더에 따로 저장돼요.</p>
                       </div>
                       <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50">
                         <Upload className="size-4" />
@@ -505,7 +508,6 @@ function SettingsView(): React.JSX.Element {
 
         </Tabs.Root>
       </div>
-      </main>
-    </Tooltip.Provider>
+    </main>
   );
 }

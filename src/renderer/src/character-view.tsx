@@ -87,6 +87,7 @@ function bindCharacterState(spriteElement: HTMLDivElement): () => void {
 }
 
 function SpeechBubble(): React.JSX.Element {
+  const speechRef = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState<SpeechMessage>({ text: "", status: "message" });
   const [visible, setVisible] = useState(false);
   const [visibleText, setVisibleText] = useState("");
@@ -108,6 +109,15 @@ function SpeechBubble(): React.JSX.Element {
     hideTimeoutRef.current = window.setTimeout(() => {
       setVisible(false);
     }, 5000);
+  }, []);
+
+  const reportSpeechHeight = useCallback(() => {
+    const speech = speechRef.current;
+    if (speech === null || window.shimeji === undefined) {
+      return;
+    }
+
+    window.shimeji.reportSpeechBubbleHeight(speech.dataset.visible === "true" ? speech.scrollHeight : 0);
   }, []);
 
   useEffect(() => {
@@ -161,11 +171,28 @@ function SpeechBubble(): React.JSX.Element {
     return stopTyping;
   }, [message, scheduleHide, stopTyping]);
 
+  useEffect(() => {
+    const speech = speechRef.current;
+    if (speech === null) {
+      return;
+    }
+
+    const observer = new ResizeObserver(reportSpeechHeight);
+    observer.observe(speech);
+    reportSpeechHeight();
+
+    return () => observer.disconnect();
+  }, [reportSpeechHeight]);
+
+  useEffect(() => {
+    reportSpeechHeight();
+  }, [message, visible, visibleText, reportSpeechHeight]);
+
   const status = message.status ?? "message";
   const Icon = getSpeechIcon(status);
 
   return (
-    <div className="speech" data-visible={visible ? "true" : "false"} data-loading={message.loading === true ? "true" : "false"} data-status={status} aria-live="polite">
+    <div ref={speechRef} className="speech" data-visible={visible ? "true" : "false"} data-loading={message.loading === true ? "true" : "false"} data-status={status} aria-live="polite">
       {message.loading === true ? <Icon className="speech-icon" aria-hidden="true" /> : null}
       <span className="speech-text">{visibleText}</span>
     </div>

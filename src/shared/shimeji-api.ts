@@ -65,6 +65,7 @@ export interface ShimejiApi {
   readonly beginDrag: (sample: PointerSample) => void;
   readonly drag: (sample: PointerSample) => void;
   readonly endDrag: (sample: PointerSample) => void;
+  readonly reportSpeechBubbleHeight: (height: number) => void;
   readonly openChat: () => void;
   readonly closeChat: () => void;
   readonly submitChat: (message: string) => Promise<void>;

@@ -5,6 +5,7 @@ export const MaxCharacterScale = 1;
 export const CharacterScaleStep = 0.05;
 export const CharacterGrabImageX = 290;
 export const CharacterGrabImageY = 60;
+export const SpeechBubbleHeightReserve = 260;
 
 export interface CharacterLayout {
   readonly scale: number;
@@ -34,7 +35,7 @@ export function createCharacterLayout(scale: number): CharacterLayout {
   const clampedScale = clampCharacterScale(scale);
   const displaySize = Math.round(CharacterImageSize * clampedScale);
   const padding = Math.round(Math.max(32, 96 * clampedScale));
-  const paddingTop = Math.round(Math.max(112, 224 * clampedScale));
+  const paddingTop = Math.round(Math.max(SpeechBubbleHeightReserve + 28, 224 * clampedScale));
 
   return {
     scale: clampedScale,

@@ -23,14 +23,15 @@ const MinWalkSeconds = 1.2;
 const MaxWalkSeconds = 3.8;
 const PostThrowRestSeconds = 3;
 const LandedPoseDelaySeconds = 0.2;
+const DefaultTickIntervalMs = 16;
+const MinTickIntervalMs = 4;
+const MaxTickIntervalMs = 33;
 
 export interface WalkerOptions {
   readonly window: BrowserWindow;
   readonly floor: DesktopFloor;
   readonly width: number;
   readonly height: number;
-  readonly viewportX: number;
-  readonly viewportY: number;
   readonly viewportWidth: number;
   readonly viewportHeight: number;
   readonly renderOffsetX: number;
@@ -44,12 +45,12 @@ export class DesktopWalker {
   private floor: DesktopFloor;
   private readonly width: number;
   private readonly height: number;
-  private viewportX: number;
-  private viewportY: number;
   private viewportWidth: number;
   private viewportHeight: number;
   private readonly renderOffsetX: number;
-  private readonly renderOffsetY: number;
+  private readonly baseRenderOffsetY: number;
+  private readonly baseViewportHeight: number;
+  private renderOffsetY: number;
   private readonly grabOffsetX: number;
   private readonly grabOffsetY: number;
   private timer: NodeJS.Timeout | undefined;
@@ -70,6 +71,14 @@ export class DesktopWalker {
   private dragAngularVelocity = 0;
   private landedPoseTime: number | undefined;
   private speechTimeout: NodeJS.Timeout | undefined;
+  private lastWindowBounds:
+    | {
+        readonly x: number;
+        readonly y: number;
+        readonly width: number;
+        readonly height: number;
+      }
+    | undefined;
   private destroyed = false;
 
   public constructor(options: WalkerOptions) {
@@ -77,11 +86,11 @@ export class DesktopWalker {
     this.floor = options.floor;
     this.width = options.width;
     this.height = options.height;
-    this.viewportX = options.viewportX;
-    this.viewportY = options.viewportY;
     this.viewportWidth = options.viewportWidth;
     this.viewportHeight = options.viewportHeight;
     this.renderOffsetX = options.renderOffsetX;
+    this.baseRenderOffsetY = options.renderOffsetY;
+    this.baseViewportHeight = options.viewportHeight;
     this.renderOffsetY = options.renderOffsetY;
     this.grabOffsetX = options.grabOffsetX;
     this.grabOffsetY = options.grabOffsetY;
@@ -140,12 +149,27 @@ export class DesktopWalker {
     }
 
     this.floor = floor;
-    this.viewportX = floor.x;
-    this.viewportY = floor.top;
-    this.viewportWidth = floor.width;
-    this.viewportHeight = floor.y + this.height - floor.top;
     this.keepInWorkArea();
     this.moveWindow();
+  }
+
+  public updateSpeechBubbleHeight(height: number): void {
+    if (this.destroyed || this.window.isDestroyed() || !Number.isFinite(height)) {
+      return;
+    }
+
+    const availableAboveCharacter = Math.max(0, this.y - this.floor.top);
+    const desiredRenderOffsetY = Math.ceil(height + 32 - this.height * 0.16);
+    const nextRenderOffsetY = this.clamp(Math.max(this.baseRenderOffsetY, desiredRenderOffsetY), this.baseRenderOffsetY, availableAboveCharacter);
+
+    if (nextRenderOffsetY === this.renderOffsetY) {
+      return;
+    }
+
+    this.renderOffsetY = nextRenderOffsetY;
+    this.viewportHeight = this.baseViewportHeight + (this.renderOffsetY - this.baseRenderOffsetY);
+    this.moveWindow();
+    this.publishState();
   }
 
   public beginDrag(_sample: PointerSample): void {
@@ -467,12 +491,25 @@ export class DesktopWalker {
       return;
     }
 
-    this.window.setBounds({
-      x: Math.round(this.viewportX),
-      y: Math.round(this.viewportY),
+    const bounds = {
+      x: Math.round(this.x - this.renderOffsetX),
+      y: Math.round(this.y - this.renderOffsetY),
       width: this.viewportWidth,
       height: this.viewportHeight,
-    });
+    };
+
+    if (
+      this.lastWindowBounds !== undefined &&
+      this.lastWindowBounds.x === bounds.x &&
+      this.lastWindowBounds.y === bounds.y &&
+      this.lastWindowBounds.width === bounds.width &&
+      this.lastWindowBounds.height === bounds.height
+    ) {
+      return;
+    }
+
+    this.lastWindowBounds = bounds;
+    this.window.setBounds(bounds);
   }
 
   private publishState(): void {
@@ -484,8 +521,8 @@ export class DesktopWalker {
       facing: this.facing,
       motion: this.motion,
       rotation: this.motion === "drag" ? this.dragRotation : 0,
-      renderX: this.x - this.viewportX + this.renderOffsetX,
-      renderY: this.y - this.viewportY + this.renderOffsetY,
+      renderX: this.renderOffsetX,
+      renderY: this.renderOffsetY,
     };
 
     this.window.webContents.send("character-state", state);
@@ -536,7 +573,18 @@ export class DesktopWalker {
       return;
     }
 
-    this.timer = setTimeout(() => this.tick(), 0);
+    this.timer = setTimeout(() => this.tick(), this.getTickIntervalMs());
+  }
+
+  private getTickIntervalMs(): number {
+    const display = screen.getDisplayNearestPoint({ x: Math.round(this.x), y: Math.round(this.y) });
+    const frequency = display.displayFrequency;
+
+    if (!Number.isFinite(frequency) || frequency <= 0) {
+      return DefaultTickIntervalMs;
+    }
+
+    return this.clamp(Math.round(1000 / frequency), MinTickIntervalMs, MaxTickIntervalMs);
   }
 
   private updateDragTarget(): void {

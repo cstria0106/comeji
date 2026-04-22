@@ -57,6 +57,9 @@ const EmptyMessageResponse = "말을 걸어주면 대답할게.";
 const ConfigFileName = "shimeji.config.json";
 const DefaultDataDirectory = ".shimeji";
 const DefaultStateFile = join(DefaultDataDirectory, "chat-state.json");
+type ApprovalPolicy = NonNullable<ThreadOptions["approvalPolicy"]>;
+const CharacterModeApprovalPolicy: ApprovalPolicy = "never";
+const AgentModeApprovalPolicy: ApprovalPolicy = "on-request";
 export function respondToMessageLocally(input: string): string {
   const message = input.trim();
   const normalized = message.toLocaleLowerCase();
@@ -119,7 +122,7 @@ class CodexChatResponder implements ChatResponder {
     this.threadOptions = {
       workingDirectory: process.env.SHIMEJI_CODEX_WORKDIR ?? codexConfig.workingDirectory ?? process.cwd(),
       sandboxMode: mode === "agent" ? "workspace-write" : "read-only",
-      approvalPolicy: "never",
+      approvalPolicy: codexConfig.approvalPolicy ?? getDefaultApprovalPolicy(mode),
       modelReasoningEffort: codexConfig.modelReasoningEffort ?? "low",
       webSearchMode: codexConfig.webSearchMode ?? "disabled",
       skipGitRepoCheck: process.env.SHIMEJI_CODEX_SKIP_GIT_CHECK === "1" || codexConfig.skipGitRepoCheck === true,
@@ -292,6 +295,10 @@ function writeChatState(path: string, state: ChatState): void {
 
 function getCodexMode(mode: CodexMode | undefined): CodexMode {
   return mode === "agent" ? "agent" : "character";
+}
+
+function getDefaultApprovalPolicy(mode: CodexMode): ApprovalPolicy {
+  return mode === "agent" ? AgentModeApprovalPolicy : CharacterModeApprovalPolicy;
 }
 
 function createCodexInput(message: string): string {

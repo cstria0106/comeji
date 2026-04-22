@@ -46,6 +46,7 @@ import {
 
 const ChatWindowWidth = 380;
 const ChatWindowHeight = 170;
+const ChatWindowVerticalOffset = 4;
 const SettingsWindowWidth = 860;
 const SettingsWindowHeight = 680;
 const PreloadPath = fileURLToPath(new URL("./preload.cjs", import.meta.url));
@@ -192,13 +193,14 @@ async function createCharacterWindow(): Promise<void> {
   characterLayout = createCharacterLayout(appearance.characterScale);
   characterAabb = calculateCharacterAabb(characterLayout);
   const floor = getPrimaryDesktopFloor(characterLayout.displaySize);
-  const workArea = screen.getPrimaryDisplay().workArea;
+  const initialCharacterX = floor.x + 40;
+  const initialCharacterY = floor.y;
 
   characterWindow = new BrowserWindow({
-    width: workArea.width,
-    height: workArea.height,
-    x: workArea.x,
-    y: workArea.y,
+    width: characterLayout.windowWidth,
+    height: characterLayout.windowHeight,
+    x: Math.round(initialCharacterX - characterLayout.paddingLeft),
+    y: Math.round(initialCharacterY - characterLayout.paddingTop),
     frame: false,
     resizable: false,
     transparent: true,
@@ -269,12 +271,10 @@ async function createCharacterWindow(): Promise<void> {
     floor,
     width: characterLayout.displaySize,
     height: characterLayout.displaySize,
-    viewportX: workArea.x,
-    viewportY: workArea.y,
-    viewportWidth: workArea.width,
-    viewportHeight: workArea.height,
-    renderOffsetX: 0,
-    renderOffsetY: 0,
+    viewportWidth: characterLayout.windowWidth,
+    viewportHeight: characterLayout.windowHeight,
+    renderOffsetX: characterLayout.paddingLeft,
+    renderOffsetY: characterLayout.paddingTop,
     grabOffsetX: characterLayout.grabDisplayX,
     grabOffsetY: characterLayout.grabDisplayY,
   });
@@ -303,6 +303,7 @@ function savePromptSettings(settings: PromptSettings): void {
   const mode = settings.mode === "agent" ? "agent" : "character";
   const workingDirectory = settings.workingDirectory.trim();
   const userInstructions = settings.userInstructions.trim();
+  const approvalPolicy = config.codex?.approvalPolicy ?? (mode === "agent" ? "on-request" : "never");
 
   writeShimejiConfig({
     ...config,
@@ -313,7 +314,7 @@ function savePromptSettings(settings: PromptSettings): void {
       userInstructions,
       developerInstructions: buildDeveloperInstructions(mode, userInstructions),
       sandboxMode: mode === "agent" ? "workspace-write" : "read-only",
-      approvalPolicy: "never",
+      approvalPolicy,
     },
   });
 
@@ -678,7 +679,7 @@ async function openChatWindow(): Promise<void> {
     width: ChatWindowWidth,
     height: ChatWindowHeight,
     x: Math.round(characterCenterX - ChatWindowWidth / 2),
-    y: Math.max(0, Math.round(characterTopY - ChatWindowHeight + 28)),
+    y: Math.max(0, Math.round(characterTopY - ChatWindowHeight + ChatWindowVerticalOffset)),
     frame: false,
     resizable: false,
     transparent: true,
@@ -757,6 +758,10 @@ function wireIpc(): void {
     walker?.endDrag();
     characterMouseCaptured = false;
     updateCharacterMouseHitTest();
+  });
+
+  ipcMain.on("speech-layout", (_event, height: number) => {
+    walker?.updateSpeechBubbleHeight(height);
   });
 
   ipcMain.on("chat-open", () => {
