@@ -1,7 +1,7 @@
 import { dialog } from "electron";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, extname, join } from "node:path";
+import { delimiter, dirname, extname, join } from "node:path";
 import readline from "node:readline";
 import type { SpeechMessage } from "../shared/character-state.js";
 import type { CodexLoginStatus, CodexSessionDetail, CodexSessionMessage, CodexSessionSummary } from "../shared/shimeji-api.js";
@@ -146,12 +146,14 @@ type AppServerOptions = {
 
 const EmptyMessageResponse = "말을 걸어주면 대답할게.";
 const DefaultStateFile = join(ShimejiDataDirectory, "chat-state.json");
-const DefaultCodexCommandPath = join(getApplicationBaseDirectory(), "node_modules", ".bin", "codex.cmd");
+const PackagedCodexCommandPath = join(process.resourcesPath, "codex", "codex", "codex.exe");
+const DevelopmentCodexCommandPath = join(getApplicationBaseDirectory(), "node_modules", ".bin", "codex.cmd");
 const MaxShownSessions = 100;
 const MaxShownSessionMessages = 80;
 const MaxSessionListPages = 20;
 const CharacterModeApprovalPolicy: ApprovalPolicy = "never";
 const AgentModeApprovalPolicy: ApprovalPolicy = "on-request";
+const AppServerRequestTimeoutMs = 30_000;
 const TurnTimeoutMs = 45_000;
 
 export function respondToMessageLocally(input: string): string {
@@ -228,8 +230,29 @@ class CodexAppServerClient {
     this.nextRequestId += 1;
 
     return await new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
-      this.send({ method, id, params });
+      const timeoutId = setTimeout(() => {
+        this.pendingRequests.delete(id);
+        reject(new Error(`Codex app-server request timed out: ${method}`));
+      }, AppServerRequestTimeoutMs);
+
+      this.pendingRequests.set(id, {
+        resolve: (result) => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        },
+        reject: (error) => {
+          clearTimeout(timeoutId);
+          reject(error);
+        },
+      });
+
+      try {
+        this.send({ method, id, params });
+      } catch (error) {
+        clearTimeout(timeoutId);
+        this.pendingRequests.delete(id);
+        reject(error instanceof Error ? error : new Error("Could not send Codex app-server request."));
+      }
     });
   }
 
@@ -392,7 +415,7 @@ class CodexAppServerResponder implements ManagedChatResponder {
     this.mode = getCodexMode(codexConfig.mode);
     this.workingDirectory = process.env.SHIMEJI_CODEX_WORKDIR ?? codexConfig.workingDirectory ?? getApplicationBaseDirectory();
     this.options = {
-      commandPath: process.env.SHIMEJI_CODEX_PATH ?? codexConfig.codexPath ?? DefaultCodexCommandPath,
+      commandPath: process.env.SHIMEJI_CODEX_PATH ?? codexConfig.codexPath ?? getDefaultCodexCommandPath(),
       workingDirectory: this.workingDirectory,
       mode: this.mode,
       model: process.env.SHIMEJI_CODEX_MODEL ?? codexConfig.model,
@@ -706,8 +729,10 @@ class CodexAppServerResponder implements ManagedChatResponder {
 function spawnCodexAppServer(commandPath: string): ChildProcessWithoutNullStreams {
   const extension = extname(commandPath).toLocaleLowerCase();
   const cwd = getApplicationBaseDirectory();
+  const runtimePathDirectories = getCodexRuntimePathDirectories(commandPath);
   const env = {
     ...process.env,
+    PATH: runtimePathDirectories.length > 0 ? [runtimePathDirectories, process.env.PATH ?? ""].flat().filter((entry) => entry.length > 0).join(delimiter) : process.env.PATH,
   };
 
   if (extension === ".cmd" || extension === ".bat") {
@@ -725,6 +750,25 @@ function spawnCodexAppServer(commandPath: string): ChildProcessWithoutNullStream
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
   });
+}
+
+function getDefaultCodexCommandPath(): string {
+  if (existsSync(PackagedCodexCommandPath)) {
+    return PackagedCodexCommandPath;
+  }
+
+  return DevelopmentCodexCommandPath;
+}
+
+function getCodexRuntimePathDirectories(commandPath: string): string[] {
+  const vendorRoot = dirname(dirname(commandPath));
+  const pathDirectory = join(vendorRoot, "path");
+
+  if (!existsSync(pathDirectory)) {
+    return [];
+  }
+
+  return [pathDirectory];
 }
 
 async function respondToServerRequest(method: string, params: unknown): Promise<unknown> {
@@ -1060,14 +1104,14 @@ function readConfig(): ShimejiConfig {
     const rawConfig = readFileSync(ShimejiConfigPath, "utf8");
     return JSON.parse(rawConfig) as ShimejiConfig;
   } catch (error) {
-    console.warn(`Could not read ${ConfigFileName}; using local chat responder.`, error);
+    console.warn(`Could not read ${ConfigFileName}; using default chat responder.`, error);
     return {};
   }
 }
 
 function createChatResponder(): ChatResponder {
   const config = readConfig();
-  const provider = process.env.SHIMEJI_CHAT_PROVIDER ?? config.chatProvider ?? "local";
+  const provider = process.env.SHIMEJI_CHAT_PROVIDER ?? config.chatProvider ?? "codex";
 
   if (provider === "codex") {
     return new CodexAppServerResponder(config);

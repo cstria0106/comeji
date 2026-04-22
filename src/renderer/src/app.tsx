@@ -136,6 +136,8 @@ function SettingsView(): React.JSX.Element {
     try {
       const status = await window.shimeji.getCodexLoginStatus();
       setStatusText(status.ok ? `로그인됨: ${status.text}` : `확인 실패: ${status.text}`);
+    } catch (error) {
+      setStatusText(`확인 실패: ${getErrorText(error)}`);
     } finally {
       setBusyAction(undefined);
     }
@@ -548,4 +550,12 @@ function SettingsView(): React.JSX.Element {
       </div>
     </main>
   );
+}
+
+function getErrorText(error: unknown): string {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+
+  return "Codex 상태를 확인하지 못했어요.";
 }
