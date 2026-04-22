@@ -28,6 +28,7 @@ import {
   respondToMessage,
   selectCodexThread,
 } from "./responder.js";
+import { getApplicationBaseDirectory } from "./paths.js";
 import {
   calculateCharacterAabb,
   deleteSpriteSheet,
@@ -264,9 +265,10 @@ async function createCharacterWindow(): Promise<void> {
 
 function getPromptSettings(): PromptSettings {
   const config = readShimejiConfig();
+  const defaultWorkingDirectory = getApplicationBaseDirectory();
   return {
     mode: config.codex?.mode === "agent" ? "agent" : "character",
-    workingDirectory: process.env.SHIMEJI_CODEX_WORKDIR ?? config.codex?.workingDirectory ?? process.cwd(),
+    workingDirectory: process.env.SHIMEJI_CODEX_WORKDIR ?? config.codex?.workingDirectory ?? defaultWorkingDirectory,
     userInstructions: getUserInstructions(config.codex),
   };
 }
@@ -275,6 +277,7 @@ function savePromptSettings(settings: PromptSettings): void {
   const config = readShimejiConfig();
   const mode = settings.mode === "agent" ? "agent" : "character";
   const workingDirectory = settings.workingDirectory.trim();
+  const defaultWorkingDirectory = getApplicationBaseDirectory();
   const userInstructions = settings.userInstructions.trim();
   const approvalPolicy = config.codex?.approvalPolicy ?? (mode === "agent" ? "on-request" : "never");
 
@@ -283,7 +286,7 @@ function savePromptSettings(settings: PromptSettings): void {
     codex: {
       ...config.codex,
       mode,
-      workingDirectory: workingDirectory.length > 0 ? workingDirectory : process.cwd(),
+      workingDirectory: workingDirectory.length > 0 ? workingDirectory : defaultWorkingDirectory,
       userInstructions,
       developerInstructions: buildDeveloperInstructions(mode, userInstructions),
       sandboxMode: mode === "agent" ? "workspace-write" : "read-only",

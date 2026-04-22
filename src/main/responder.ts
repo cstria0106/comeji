@@ -5,7 +5,7 @@ import { dirname, extname, join } from "node:path";
 import readline from "node:readline";
 import type { SpeechMessage } from "../shared/character-state.js";
 import type { CodexLoginStatus, CodexSessionDetail, CodexSessionMessage, CodexSessionSummary } from "../shared/shimeji-api.js";
-import { ConfigFileName, ShimejiConfigPath, ShimejiDataDirectory } from "./paths.js";
+import { ConfigFileName, getApplicationBaseDirectory, ShimejiConfigPath, ShimejiDataDirectory } from "./paths.js";
 import { buildDeveloperInstructions, getUserInstructions } from "./prompts.js";
 
 type ChatProvider = "local" | "codex";
@@ -146,7 +146,7 @@ type AppServerOptions = {
 
 const EmptyMessageResponse = "말을 걸어주면 대답할게.";
 const DefaultStateFile = join(ShimejiDataDirectory, "chat-state.json");
-const DefaultCodexCommandPath = join(process.cwd(), "node_modules", ".bin", "codex.cmd");
+const DefaultCodexCommandPath = join(getApplicationBaseDirectory(), "node_modules", ".bin", "codex.cmd");
 const MaxShownSessions = 100;
 const MaxShownSessionMessages = 80;
 const MaxSessionListPages = 20;
@@ -390,7 +390,7 @@ class CodexAppServerResponder implements ManagedChatResponder {
     this.clearThreadId();
 
     this.mode = getCodexMode(codexConfig.mode);
-    this.workingDirectory = process.env.SHIMEJI_CODEX_WORKDIR ?? codexConfig.workingDirectory ?? process.cwd();
+    this.workingDirectory = process.env.SHIMEJI_CODEX_WORKDIR ?? codexConfig.workingDirectory ?? getApplicationBaseDirectory();
     this.options = {
       commandPath: process.env.SHIMEJI_CODEX_PATH ?? codexConfig.codexPath ?? DefaultCodexCommandPath,
       workingDirectory: this.workingDirectory,
@@ -705,13 +705,14 @@ class CodexAppServerResponder implements ManagedChatResponder {
 
 function spawnCodexAppServer(commandPath: string): ChildProcessWithoutNullStreams {
   const extension = extname(commandPath).toLocaleLowerCase();
+  const cwd = getApplicationBaseDirectory();
   const env = {
     ...process.env,
   };
 
   if (extension === ".cmd" || extension === ".bat") {
     return spawn("cmd.exe", ["/d", "/c", commandPath, "app-server"], {
-      cwd: process.cwd(),
+      cwd,
       env,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
@@ -719,7 +720,7 @@ function spawnCodexAppServer(commandPath: string): ChildProcessWithoutNullStream
   }
 
   return spawn(commandPath, ["app-server"], {
-    cwd: process.cwd(),
+    cwd,
     env,
     stdio: ["pipe", "pipe", "pipe"],
     windowsHide: true,
