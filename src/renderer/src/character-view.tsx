@@ -6,7 +6,7 @@ import type { AppearanceSettings } from "../../shared/shimeji-api";
 
 export function CharacterView(): React.JSX.Element {
   const stageRef = useRef<HTMLElement>(null);
-  const spriteRef = useRef<HTMLDivElement>(null);
+  const spriteRef = useRef<HTMLCanvasElement>(null);
   const debugRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,18 +26,21 @@ export function CharacterView(): React.JSX.Element {
       return;
     }
 
-    void applyAppearanceSettings();
+    const spriteRenderer = createSpriteRenderer(sprite);
 
-    const unbindCharacterState = bindCharacterState(sprite);
+    void applyAppearanceSettings(undefined, spriteRenderer);
+
+    const unbindCharacterState = bindCharacterState(sprite, spriteRenderer);
     const unbindPointerGestures = bindPointerGestures(stage);
     const unbindAppearanceSettings = window.shimeji.onAppearanceSettings((settings) => {
-      void applyAppearanceSettings(settings);
+      void applyAppearanceSettings(settings, spriteRenderer);
     });
 
     return () => {
       unbindCharacterState();
       unbindPointerGestures();
       unbindAppearanceSettings();
+      spriteRenderer.dispose();
     };
   }, []);
 
@@ -45,15 +48,16 @@ export function CharacterView(): React.JSX.Element {
     <main ref={stageRef} className="stage" aria-label="Desktop mate test sprite">
       <SpeechBubble />
       <div ref={debugRef} className="debug" />
-      <div ref={spriteRef} className="sprite" role="img" aria-label="Character" />
+      <canvas ref={spriteRef} className="sprite" role="img" aria-label="Character" />
     </main>
   );
 }
 
-async function applyAppearanceSettings(settings?: AppearanceSettings): Promise<void> {
+async function applyAppearanceSettings(settings?: AppearanceSettings, spriteRenderer?: SpriteRenderer): Promise<void> {
   const nextSettings = settings ?? (await window.shimeji.getAppearanceSettings());
   applyCharacterLayoutVars(nextSettings);
   document.documentElement.style.setProperty("--character-sprite-sheet-url", `url("${nextSettings.spriteSheetDataUrl}")`);
+  spriteRenderer?.setAppearance(nextSettings);
 }
 
 function applyCharacterLayoutVars(settings?: Pick<AppearanceSettings, "characterScale">): void {
@@ -73,11 +77,104 @@ function applyCharacterLayoutVars(settings?: Pick<AppearanceSettings, "character
   document.documentElement.style.setProperty("--grab-origin-display-y", `${layout.grabDisplayY}px`);
 }
 
-function bindCharacterState(spriteElement: HTMLDivElement): () => void {
+interface SpriteRenderer {
+  readonly setAppearance: (settings: AppearanceSettings) => void;
+  readonly setState: (state: CharacterState) => void;
+  readonly dispose: () => void;
+}
+
+function createSpriteRenderer(canvas: HTMLCanvasElement): SpriteRenderer {
+  let image: HTMLImageElement | undefined;
+  let imageLoadId = 0;
+  let latestSettings: AppearanceSettings | undefined;
+  let latestState: CharacterState = { facing: "right", motion: "walk", rotation: 0, renderX: 48, renderY: 112 };
+
+  function setAppearance(settings: AppearanceSettings): void {
+    latestSettings = settings;
+    const loadId = imageLoadId + 1;
+    imageLoadId = loadId;
+    const nextImage = new Image();
+
+    nextImage.onload = () => {
+      if (imageLoadId !== loadId) {
+        return;
+      }
+
+      image = nextImage;
+      draw();
+    };
+
+    nextImage.src = settings.spriteSheetDataUrl;
+    draw();
+  }
+
+  function setState(state: CharacterState): void {
+    latestState = state;
+    canvas.dataset.motion = state.motion;
+    canvas.dataset.facing = state.facing;
+    canvas.style.setProperty("--sprite-rotation", `${state.rotation.toFixed(2)}deg`);
+    draw();
+  }
+
+  function draw(): void {
+    const layout = createCharacterLayout(latestSettings?.characterScale ?? DefaultCharacterScale);
+    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    const canvasSize = Math.max(1, Math.round(layout.displaySize * pixelRatio));
+
+    if (canvas.width !== canvasSize || canvas.height !== canvasSize) {
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+    }
+
+    const context = canvas.getContext("2d");
+    if (context === null) {
+      return;
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (image === undefined || !image.complete || image.naturalWidth === 0 || image.naturalHeight === 0) {
+      return;
+    }
+
+    const frameCount = 6;
+    const sourceWidth = image.naturalWidth / frameCount;
+    const sourceHeight = image.naturalHeight;
+    const frameIndex = getSpriteFrameIndex(latestState.motion);
+
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(image, sourceWidth * frameIndex, 0, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+  }
+
+  return {
+    setAppearance,
+    setState,
+    dispose() {
+      imageLoadId += 1;
+    },
+  };
+}
+
+function getSpriteFrameIndex(motion: CharacterState["motion"]): number {
+  switch (motion) {
+    case "idle":
+    case "talk":
+      return 0;
+    case "walk":
+      return 1;
+    case "think":
+      return 2;
+    case "drag":
+      return 3;
+    case "throw":
+      return 5;
+  }
+}
+
+function bindCharacterState(spriteElement: HTMLCanvasElement, spriteRenderer: SpriteRenderer): () => void {
   function applyState(state: CharacterState): void {
-    spriteElement.dataset.motion = state.motion;
-    spriteElement.dataset.facing = state.facing;
-    spriteElement.style.setProperty("--sprite-rotation", `${state.rotation.toFixed(2)}deg`);
+    spriteRenderer.setState(state);
     document.documentElement.style.setProperty("--character-render-x", `${state.renderX}px`);
     document.documentElement.style.setProperty("--character-render-y", `${state.renderY}px`);
   }

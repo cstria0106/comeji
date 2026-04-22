@@ -1,11 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { ConfigFileName, type ShimejiConfig } from "./responder.js";
-
-export const ShimejiDataDirectory = join(process.cwd(), ".shimeji");
-export const ShimejiConfigPath = join(ShimejiDataDirectory, ConfigFileName);
-export const SpriteSheetsDirectory = join(ShimejiDataDirectory, "sprites");
-export const DevServerFilePath = join(ShimejiDataDirectory, "dev-server.json");
+import type { ShimejiConfig } from "./responder.js";
+import { ShimejiConfigPath, ShimejiDataDirectory } from "./paths.js";
+export { DevServerFilePath, ShimejiDataDirectory, SpriteSheetsDirectory } from "./paths.js";
 
 export function readShimejiConfig(): ShimejiConfig {
   try {

@@ -228,17 +228,13 @@ body {
 
 .sprite {
   --sprite-rotation: 0deg;
-  --sprite-frame-index: 1;
 
   position: absolute;
+  display: block;
   left: var(--character-render-x);
   top: var(--character-render-y);
   width: var(--character-size);
   height: var(--character-size);
-  background-image: var(--character-sprite-sheet-url);
-  background-repeat: no-repeat;
-  background-position: calc(var(--sprite-frame-index) * var(--character-size) * -1) 0;
-  background-size: calc(var(--character-size) * 6) var(--character-size);
   image-rendering: auto;
   backface-visibility: hidden;
   transform-origin: 50% 100%;
@@ -251,26 +247,6 @@ body {
 .sprite[data-motion="drag"] {
   transform: rotate(var(--sprite-rotation));
   transform-origin: var(--grab-origin-display-x) var(--grab-origin-display-y);
-}
-
-.sprite[data-motion="idle"] {
-  --sprite-frame-index: 0;
-}
-
-.sprite[data-motion="talk"] {
-  --sprite-frame-index: 0;
-}
-
-.sprite[data-motion="think"] {
-  --sprite-frame-index: 2;
-}
-
-.sprite[data-motion="drag"] {
-  --sprite-frame-index: 3;
-}
-
-.sprite[data-motion="throw"] {
-  --sprite-frame-index: 5;
 }
 
 .chat-panel {

@@ -10,10 +10,11 @@ import type {
   SpriteSheetUpload,
 } from "../shared/shimeji-api.js";
 import { readShimejiConfig, SpriteSheetsDirectory, writeShimejiConfig } from "./config.js";
+import { getBundledAppPath } from "./paths.js";
 import type { ShimejiConfig } from "./responder.js";
 
 const DefaultSpriteSheetId = "default";
-const DefaultSpriteSheetPath = join(process.cwd(), "src", "renderer", "src", "assets", "character.png");
+const DefaultSpriteSheetPath = getBundledAppPath("src", "renderer", "src", "assets", "character.png");
 const SpriteSheetFrameCount = 6;
 
 export interface CharacterAabb {

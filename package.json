@@ -8,8 +8,29 @@
     "dev": "pnpm run build:main && concurrently -k \"node .tools/dev-server.mjs\" \"wait-on .shimeji/dev-server.json && electron . --dev\"",
     "build": "pnpm run build:main && vite build",
     "build:main": "tsc -p tsconfig.main.json",
+    "dist": "pnpm run typecheck && pnpm run build && electron-builder --win portable",
     "start": "pnpm run build && electron .",
     "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json"
+  },
+  "build": {
+    "appId": "local.shimeji.app",
+    "productName": "Shimeji",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "src/renderer/src/assets/character.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "Shimeji-${version}-portable.exe"
+    }
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.3",
@@ -18,6 +39,7 @@
     "@types/react-dom": "^19.2.3",
     "concurrently": "^9.2.1",
     "electron": "^41.2.1",
+    "electron-builder": "^26.8.1",
     "tailwindcss": "^4.2.3",
     "typescript": "^6.0.3",
     "vite": "^8.0.8",

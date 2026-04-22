@@ -5,6 +5,7 @@ import { dirname, extname, join } from "node:path";
 import readline from "node:readline";
 import type { SpeechMessage } from "../shared/character-state.js";
 import type { CodexLoginStatus, CodexSessionDetail, CodexSessionMessage, CodexSessionSummary } from "../shared/shimeji-api.js";
+import { ConfigFileName, ShimejiConfigPath, ShimejiDataDirectory } from "./paths.js";
 import { buildDeveloperInstructions, getUserInstructions } from "./prompts.js";
 
 type ChatProvider = "local" | "codex";
@@ -144,10 +145,7 @@ type AppServerOptions = {
 };
 
 const EmptyMessageResponse = "말을 걸어주면 대답할게.";
-const DefaultDataDirectory = ".shimeji";
-const ConfigFileName = "shimeji.config.json";
-const DefaultConfigFile = join(DefaultDataDirectory, ConfigFileName);
-const DefaultStateFile = join(DefaultDataDirectory, "chat-state.json");
+const DefaultStateFile = join(ShimejiDataDirectory, "chat-state.json");
 const DefaultCodexCommandPath = join(process.cwd(), "node_modules", ".bin", "codex.cmd");
 const MaxShownSessions = 100;
 const MaxShownSessionMessages = 80;
@@ -387,7 +385,7 @@ class CodexAppServerResponder implements ManagedChatResponder {
 
   public constructor(config: ShimejiConfig) {
     const codexConfig = config.codex ?? {};
-    this.stateFilePath = codexConfig.stateFile ?? join(process.cwd(), DefaultStateFile);
+    this.stateFilePath = codexConfig.stateFile ?? DefaultStateFile;
     ensureDirectory(dirname(this.stateFilePath));
     this.clearThreadId();
 
@@ -1058,8 +1056,7 @@ function windowSetTimeout(callback: () => void, timeoutMs: number): void {
 
 function readConfig(): ShimejiConfig {
   try {
-    const configPath = join(process.cwd(), DefaultConfigFile);
-    const rawConfig = readFileSync(configPath, "utf8");
+    const rawConfig = readFileSync(ShimejiConfigPath, "utf8");
     return JSON.parse(rawConfig) as ShimejiConfig;
   } catch (error) {
     console.warn(`Could not read ${ConfigFileName}; using local chat responder.`, error);
