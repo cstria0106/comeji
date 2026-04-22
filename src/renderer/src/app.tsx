@@ -2,6 +2,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import {
   Bot,
   CheckCircle2,
+  Save,
   Upload,
   MessageSquareText,
   RefreshCcw,
@@ -215,6 +216,21 @@ function SettingsView(): React.JSX.Element {
       });
       applyAppearanceSettings(settings);
       setStatusText("스프라이트 시트를 저장했어요.");
+    } finally {
+      setBusyAction(undefined);
+    }
+  }
+
+  async function saveActiveSpriteSheet(): Promise<void> {
+    if (window.shimeji === undefined) {
+      return;
+    }
+
+    setBusyAction("sprite-save");
+    setStatusText("스프라이트 시트를 저장할 위치를 고르고 있어요.");
+    try {
+      const result = await window.shimeji.saveActiveSpriteSheet();
+      setStatusText(result.canceled ? "스프라이트 저장을 취소했어요." : "스프라이트 시트를 파일로 저장했어요.");
     } finally {
       setBusyAction(undefined);
     }
@@ -456,17 +472,23 @@ function SettingsView(): React.JSX.Element {
                       <div>
                         <span className="text-sm font-medium text-slate-700">스프라이트 시트</span>
                       </div>
-                      <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50">
-                        <Upload className="size-4" />
-                        업로드
-                        <input
-                          className="sr-only"
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          disabled={controlsDisabled}
-                          onChange={(event) => void uploadSpriteSheet(event)}
-                        />
-                      </label>
+                      <div className="flex shrink-0 gap-2">
+                        <Button type="button" variant="secondary" disabled={controlsDisabled} onClick={() => void saveActiveSpriteSheet()}>
+                          <Save className="size-4" />
+                          저장
+                        </Button>
+                        <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50">
+                          <Upload className="size-4" />
+                          업로드
+                          <input
+                            className="sr-only"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            disabled={controlsDisabled}
+                            onChange={(event) => void uploadSpriteSheet(event)}
+                          />
+                        </label>
+                      </div>
                     </div>
                     <div className="mt-3 grid max-h-72 gap-2 overflow-auto pr-1">
                       {spriteSheets.map((sheet) => (

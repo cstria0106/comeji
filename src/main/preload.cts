@@ -93,6 +93,9 @@ const api: ShimejiApi = {
   async uploadSpriteSheet(upload) {
     return await ipcRenderer.invoke("sprite-sheet-upload", upload);
   },
+  async saveActiveSpriteSheet() {
+    return await ipcRenderer.invoke("sprite-sheet-save-active");
+  },
   async selectSpriteSheet(id) {
     return await ipcRenderer.invoke("sprite-sheet-select", id);
   },

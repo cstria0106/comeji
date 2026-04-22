@@ -56,6 +56,11 @@ export interface SpriteSheetUpload {
   readonly bytes: Uint8Array;
 }
 
+export interface SpriteSheetSaveResult {
+  readonly canceled: boolean;
+  readonly filePath?: string;
+}
+
 export interface ShimejiApi {
   readonly onCharacterState: (listener: (state: CharacterState) => void) => () => void;
   readonly onSpeech: (listener: (message: SpeechMessage) => void) => () => void;
@@ -81,6 +86,7 @@ export interface ShimejiApi {
   readonly getAppearanceSettings: () => Promise<AppearanceSettings>;
   readonly saveAppearanceSettings: (settings: AppearanceSettingsInput) => Promise<AppearanceSettings>;
   readonly uploadSpriteSheet: (upload: SpriteSheetUpload) => Promise<AppearanceSettings>;
+  readonly saveActiveSpriteSheet: () => Promise<SpriteSheetSaveResult>;
   readonly selectSpriteSheet: (id: string) => Promise<AppearanceSettings>;
   readonly deleteSpriteSheet: (id: string) => Promise<AppearanceSettings>;
 }

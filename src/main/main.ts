@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, Menu, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createCharacterLayout,
@@ -32,7 +33,9 @@ import { getApplicationBaseDirectory } from "./paths.js";
 import {
   calculateCharacterAabb,
   deleteSpriteSheet,
+  getActiveSpriteSheetFile,
   getAppearanceSettings,
+  saveActiveSpriteSheetTo,
   saveAppearanceSettings,
   selectSpriteSheet,
   uploadSpriteSheet,
@@ -549,6 +552,29 @@ function wireSettingsIpc(): void {
     refreshCharacterAabb();
     sendAppearanceSettingsToCharacter(savedSettings);
     return savedSettings;
+  });
+
+  ipcMain.handle("sprite-sheet-save-active", async () => {
+    const activeSpriteSheet = getActiveSpriteSheetFile();
+    const saveDialogOptions = {
+      title: "Save sprite sheet",
+      defaultPath: join(app.getPath("pictures"), activeSpriteSheet.name),
+      filters: [
+        { name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+    };
+    const result =
+      settingsWindow === undefined || settingsWindow.isDestroyed()
+        ? await dialog.showSaveDialog(saveDialogOptions)
+        : await dialog.showSaveDialog(settingsWindow, saveDialogOptions);
+
+    if (result.canceled || result.filePath === undefined) {
+      return { canceled: true };
+    }
+
+    await saveActiveSpriteSheetTo(result.filePath);
+    return { canceled: false, filePath: result.filePath };
   });
 
   ipcMain.handle("sprite-sheet-select", async (_event, id: string) => {

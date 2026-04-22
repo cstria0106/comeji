@@ -1,6 +1,6 @@
 import { nativeImage } from "electron";
 import { randomUUID } from "node:crypto";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, unlink, writeFile } from "node:fs/promises";
 import { extname, join, relative, resolve } from "node:path";
 import { DefaultCharacterScale, createCharacterLayout, type CharacterLayout } from "../shared/character-layout.js";
 import type {
@@ -29,6 +29,11 @@ interface SpriteSheetDefinition {
   readonly name: string;
   readonly path: string;
   readonly isDefault: boolean;
+}
+
+export interface ActiveSpriteSheetFile {
+  readonly name: string;
+  readonly path: string;
 }
 
 export function calculateCharacterAabb(characterLayout: CharacterLayout): CharacterAabb {
@@ -152,6 +157,19 @@ export async function uploadSpriteSheet(upload: SpriteSheetUpload): Promise<Appe
   });
 
   return getAppearanceSettings();
+}
+
+export function getActiveSpriteSheetFile(): ActiveSpriteSheetFile {
+  const activeSpriteSheet = getActiveSpriteSheetDefinition(readShimejiConfig());
+  return {
+    name: activeSpriteSheet.name,
+    path: activeSpriteSheet.path,
+  };
+}
+
+export async function saveActiveSpriteSheetTo(destinationPath: string): Promise<void> {
+  const activeSpriteSheet = getActiveSpriteSheetDefinition(readShimejiConfig());
+  await copyFile(activeSpriteSheet.path, destinationPath);
 }
 
 export function selectSpriteSheet(id: string): AppearanceSettings {
