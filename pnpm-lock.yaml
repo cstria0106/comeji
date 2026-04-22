@@ -26,9 +26,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      gl-chromakey:
-        specifier: ^2.0.0
-        version: 2.0.0
       lucide-react:
         specifier: ^1.8.0
         version: 1.8.0(react@19.2.5)
@@ -888,9 +885,6 @@ packages:
   get-stream@5.2.0:
     resolution: {integrity: sha512-nBF+F1rAZVCu/p7rjzgA+Yb4lfYXrpl7a6VmJrU8wF9I1CKvP/QwPNZHnOlwbTkY6dvtFIzFMSyQXbLoTQPRpA==}
     engines: {node: '>=8'}
-
-  gl-chromakey@2.0.0:
-    resolution: {integrity: sha512-iU2mLJ97p5rIXmeCB+/VlVAibOF5mmpBUVRsUSLKirRMMqEFUcpKmn67lzqrEQ8g7+vWjW+bezKBxK3ue3JkiQ==}
 
   global-agent@3.0.0:
     resolution: {integrity: sha512-PT6XReJ+D07JvGoxQMkT6qji/jVNfX/h364XHZOWeRzy64sSFr+xJ5OX7LI3b4MPQzdL4H8Y8M0xzPpsVMwA8Q==}
@@ -2060,8 +2054,6 @@ snapshots:
   get-stream@5.2.0:
     dependencies:
       pump: 3.0.4
-
-  gl-chromakey@2.0.0: {}
 
   global-agent@3.0.0:
     dependencies:

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { CharacterState, PointerSample, SpeechMessage } from "../shared/character-state.js";
-import type { ShimejiApi } from "../shared/shimeji-api.js";
+import type { AppearanceSettings, ShimejiApi } from "../shared/shimeji-api.js";
 
 const api: ShimejiApi = {
   onCharacterState(listener) {
@@ -16,6 +16,15 @@ const api: ShimejiApi = {
     const channel = "speech";
     const wrapped = (_event: Electron.IpcRendererEvent, message: SpeechMessage): void => {
       listener(message);
+    };
+
+    ipcRenderer.on(channel, wrapped);
+    return () => ipcRenderer.off(channel, wrapped);
+  },
+  onAppearanceSettings(listener) {
+    const channel = "appearance-settings";
+    const wrapped = (_event: Electron.IpcRendererEvent, settings: AppearanceSettings): void => {
+      listener(settings);
     };
 
     ipcRenderer.on(channel, wrapped);
@@ -83,9 +92,6 @@ const api: ShimejiApi = {
   },
   async selectSpriteSheet(id) {
     return await ipcRenderer.invoke("sprite-sheet-select", id);
-  },
-  async updateSpriteSheet(settings) {
-    return await ipcRenderer.invoke("sprite-sheet-update", settings);
   },
   async deleteSpriteSheet(id) {
     return await ipcRenderer.invoke("sprite-sheet-delete", id);

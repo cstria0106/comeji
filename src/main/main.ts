@@ -12,13 +12,13 @@ import {
 } from "../shared/character-layout.js";
 import type { PointerSample } from "../shared/character-state.js";
 import type {
+  AppearanceSettings,
   AppearanceSettingsInput,
   CodexLoginStatus,
   CodexSessionDetail,
   CodexSessionMessage,
   CodexSessionSummary,
   PromptSettings,
-  SpriteSheetUpdate,
   SpriteSheetUpload,
 } from "../shared/shimeji-api.js";
 import { DevServerFilePath, readShimejiConfig, writeShimejiConfig } from "./config.js";
@@ -40,7 +40,6 @@ import {
   getAppearanceSettings,
   saveAppearanceSettings,
   selectSpriteSheet,
-  updateSpriteSheet,
   uploadSpriteSheet,
   type CharacterAabb,
 } from "./sprites.js";
@@ -718,6 +717,18 @@ function closeChatWindow(options: { readonly keepTalkingAfterClose: boolean }): 
   return true;
 }
 
+function sendAppearanceSettingsToCharacter(settings: AppearanceSettings): void {
+  if (characterWindow === undefined || characterWindow.isDestroyed()) {
+    return;
+  }
+
+  characterWindow.webContents.send("appearance-settings", settings);
+}
+
+function refreshCharacterAabb(): void {
+  characterAabb = calculateCharacterAabb(characterLayout);
+}
+
 function wireIpc(): void {
   ipcMain.on("pointer-capture-begin", () => {
     characterMouseCaptured = true;
@@ -834,31 +845,29 @@ function wireSettingsIpc(): void {
 
   ipcMain.handle("appearance-settings-save", async (_event, settings: AppearanceSettingsInput) => {
     const savedSettings = saveAppearanceSettings(settings);
+    sendAppearanceSettingsToCharacter(savedSettings);
     await recreateCharacterWindow();
     return savedSettings;
   });
 
   ipcMain.handle("sprite-sheet-upload", async (_event, upload: SpriteSheetUpload) => {
     const savedSettings = await uploadSpriteSheet(upload);
-    await recreateCharacterWindow();
+    refreshCharacterAabb();
+    sendAppearanceSettingsToCharacter(savedSettings);
     return savedSettings;
   });
 
   ipcMain.handle("sprite-sheet-select", async (_event, id: string) => {
     const savedSettings = selectSpriteSheet(id);
-    await recreateCharacterWindow();
-    return savedSettings;
-  });
-
-  ipcMain.handle("sprite-sheet-update", async (_event, settings: SpriteSheetUpdate) => {
-    const savedSettings = updateSpriteSheet(settings);
-    await recreateCharacterWindow();
+    refreshCharacterAabb();
+    sendAppearanceSettingsToCharacter(savedSettings);
     return savedSettings;
   });
 
   ipcMain.handle("sprite-sheet-delete", async (_event, id: string) => {
     const savedSettings = await deleteSpriteSheet(id);
-    await recreateCharacterWindow();
+    refreshCharacterAabb();
+    sendAppearanceSettingsToCharacter(savedSettings);
     return savedSettings;
   });
 }

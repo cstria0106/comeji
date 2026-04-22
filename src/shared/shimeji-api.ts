@@ -37,7 +37,6 @@ export interface AppearanceSettings {
   readonly activeSpriteSheetId: string;
   readonly spriteSheets: readonly SpriteSheetSettings[];
   readonly spriteSheetDataUrl: string;
-  readonly rawSpriteSheetDataUrl: string;
 }
 
 export interface AppearanceSettingsInput {
@@ -47,17 +46,9 @@ export interface AppearanceSettingsInput {
 export interface SpriteSheetSettings {
   readonly id: string;
   readonly name: string;
-  readonly chromaKey: string;
-  readonly chromaThreshold: number;
   readonly previewDataUrl: string;
   readonly isDefault: boolean;
   readonly isActive: boolean;
-}
-
-export interface SpriteSheetUpdate {
-  readonly id: string;
-  readonly chromaKey: string;
-  readonly chromaThreshold: number;
 }
 
 export interface SpriteSheetUpload {
@@ -68,6 +59,7 @@ export interface SpriteSheetUpload {
 export interface ShimejiApi {
   readonly onCharacterState: (listener: (state: CharacterState) => void) => () => void;
   readonly onSpeech: (listener: (message: SpeechMessage) => void) => () => void;
+  readonly onAppearanceSettings: (listener: (settings: AppearanceSettings) => void) => () => void;
   readonly beginPointerCapture: () => void;
   readonly endPointerCapture: () => void;
   readonly beginDrag: (sample: PointerSample) => void;
@@ -89,6 +81,5 @@ export interface ShimejiApi {
   readonly saveAppearanceSettings: (settings: AppearanceSettingsInput) => Promise<AppearanceSettings>;
   readonly uploadSpriteSheet: (upload: SpriteSheetUpload) => Promise<AppearanceSettings>;
   readonly selectSpriteSheet: (id: string) => Promise<AppearanceSettings>;
-  readonly updateSpriteSheet: (settings: SpriteSheetUpdate) => Promise<AppearanceSettings>;
   readonly deleteSpriteSheet: (id: string) => Promise<AppearanceSettings>;
 }

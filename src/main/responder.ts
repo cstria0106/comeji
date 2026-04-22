@@ -12,16 +12,12 @@ type ShimejiConfig = {
   appearance?: {
     characterScale?: number;
     activeSpriteSheetId?: string;
-    spriteChromaKey?: string;
-    spriteChromaThreshold?: number;
     customSpriteSheetPath?: string;
     customSpriteSheetName?: string;
     spriteSheets?: {
       id?: string;
       name?: string;
       path?: string;
-      chromaKey?: string;
-      chromaThreshold?: number;
     }[];
   };
   codex?: {

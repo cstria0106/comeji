@@ -32,9 +32,9 @@ export function clampCharacterScale(value: number): number {
 
 export function createCharacterLayout(scale: number): CharacterLayout {
   const clampedScale = clampCharacterScale(scale);
-  const displaySize = CharacterImageSize * clampedScale;
-  const padding = Math.max(32, 96 * clampedScale);
-  const paddingTop = Math.max(112, 224 * clampedScale);
+  const displaySize = Math.round(CharacterImageSize * clampedScale);
+  const padding = Math.round(Math.max(32, 96 * clampedScale));
+  const paddingTop = Math.round(Math.max(112, 224 * clampedScale));
 
   return {
     scale: clampedScale,
@@ -44,11 +44,11 @@ export function createCharacterLayout(scale: number): CharacterLayout {
     paddingRight: padding,
     paddingBottom: padding,
     paddingLeft: padding,
-    windowWidth: Math.ceil(displaySize + padding * 2),
-    windowHeight: Math.ceil(displaySize + paddingTop + padding),
+    windowWidth: displaySize + padding * 2,
+    windowHeight: displaySize + paddingTop + padding,
     grabImageX: CharacterGrabImageX,
     grabImageY: CharacterGrabImageY,
-    grabDisplayX: CharacterGrabImageX * clampedScale,
-    grabDisplayY: CharacterGrabImageY * clampedScale,
+    grabDisplayX: Math.round(CharacterGrabImageX * clampedScale),
+    grabDisplayY: Math.round(CharacterGrabImageY * clampedScale),
   };
 }

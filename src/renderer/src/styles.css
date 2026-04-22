@@ -16,7 +16,7 @@
   --grab-origin-display-y: 30px;
   --character-render-x: 48px;
   --character-render-y: 112px;
-  --character-sprite-sheet-url: url("./assets/character.png");
+  --character-sprite-sheet-url: none;
   color-scheme: light;
   background: transparent;
 }
@@ -228,7 +228,7 @@ body {
 
 .sprite {
   --sprite-rotation: 0deg;
-  --sprite-frame-position: 33.3333%;
+  --sprite-frame-index: 1;
 
   position: absolute;
   left: var(--character-render-x);
@@ -237,8 +237,10 @@ body {
   height: var(--character-size);
   background-image: var(--character-sprite-sheet-url);
   background-repeat: no-repeat;
-  background-position: var(--sprite-frame-position) 0;
-  background-size: 400% 100%;
+  background-position: calc(var(--sprite-frame-index) * var(--character-size) * -1) 0;
+  background-size: calc(var(--character-size) * 4) var(--character-size);
+  image-rendering: auto;
+  backface-visibility: hidden;
   transform-origin: 50% 100%;
 }
 
@@ -252,20 +254,20 @@ body {
 }
 
 .sprite[data-motion="idle"] {
-  --sprite-frame-position: 0%;
+  --sprite-frame-index: 0;
 }
 
 .sprite[data-motion="talk"] {
-  --sprite-frame-position: 0%;
+  --sprite-frame-index: 0;
 }
 
 .sprite[data-motion="think"] {
-  --sprite-frame-position: 66.6667%;
+  --sprite-frame-index: 2;
 }
 
 .sprite[data-motion="drag"],
 .sprite[data-motion="throw"] {
-  --sprite-frame-position: 100%;
+  --sprite-frame-index: 3;
 }
 
 .chat-panel {

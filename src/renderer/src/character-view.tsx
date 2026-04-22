@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { CharacterState, PointerSample, SpeechMessage } from "../../shared/character-state";
 import { createCharacterLayout, DefaultCharacterScale } from "../../shared/character-layout";
 import type { AppearanceSettings } from "../../shared/shimeji-api";
-import { getCachedChromaKeyedSpriteSheet } from "./chroma-key";
 
 export function CharacterView(): React.JSX.Element {
   const stageRef = useRef<HTMLElement>(null);
@@ -27,18 +26,18 @@ export function CharacterView(): React.JSX.Element {
       return;
     }
 
-    void window.shimeji.getAppearanceSettings().then(async (settings) => {
-      applyCharacterLayoutVars(settings);
-      const spriteSheetDataUrl = await getCachedChromaKeyedSpriteSheet(settings);
-      document.documentElement.style.setProperty("--character-sprite-sheet-url", `url("${spriteSheetDataUrl}")`);
-    });
+    void applyAppearanceSettings();
 
     const unbindCharacterState = bindCharacterState(sprite);
     const unbindPointerGestures = bindPointerGestures(stage);
+    const unbindAppearanceSettings = window.shimeji.onAppearanceSettings((settings) => {
+      void applyAppearanceSettings(settings);
+    });
 
     return () => {
       unbindCharacterState();
       unbindPointerGestures();
+      unbindAppearanceSettings();
     };
   }, []);
 
@@ -51,7 +50,13 @@ export function CharacterView(): React.JSX.Element {
   );
 }
 
-function applyCharacterLayoutVars(settings?: Pick<AppearanceSettings, "characterScale" | "spriteSheetDataUrl">): void {
+async function applyAppearanceSettings(settings?: AppearanceSettings): Promise<void> {
+  const nextSettings = settings ?? (await window.shimeji.getAppearanceSettings());
+  applyCharacterLayoutVars(nextSettings);
+  document.documentElement.style.setProperty("--character-sprite-sheet-url", `url("${nextSettings.spriteSheetDataUrl}")`);
+}
+
+function applyCharacterLayoutVars(settings?: Pick<AppearanceSettings, "characterScale">): void {
   const layout = createCharacterLayout(settings?.characterScale ?? DefaultCharacterScale);
   document.documentElement.style.setProperty("--character-image-size", `${layout.imageSize}px`);
   document.documentElement.style.setProperty("--character-scale", `${layout.scale}`);
@@ -66,10 +71,6 @@ function applyCharacterLayoutVars(settings?: Pick<AppearanceSettings, "character
   document.documentElement.style.setProperty("--grab-origin-y", `${layout.grabImageY}px`);
   document.documentElement.style.setProperty("--grab-origin-display-x", `${layout.grabDisplayX}px`);
   document.documentElement.style.setProperty("--grab-origin-display-y", `${layout.grabDisplayY}px`);
-
-  if (settings?.spriteSheetDataUrl !== undefined && settings.spriteSheetDataUrl.length > 0) {
-    document.documentElement.style.setProperty("--character-sprite-sheet-url", `url("${settings.spriteSheetDataUrl}")`);
-  }
 }
 
 function bindCharacterState(spriteElement: HTMLDivElement): () => void {

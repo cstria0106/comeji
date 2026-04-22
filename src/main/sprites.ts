@@ -7,7 +7,6 @@ import type {
   AppearanceSettings,
   AppearanceSettingsInput,
   SpriteSheetSettings,
-  SpriteSheetUpdate,
   SpriteSheetUpload,
 } from "../shared/shimeji-api.js";
 import { readShimejiConfig, SpriteSheetsDirectory, writeShimejiConfig } from "./config.js";
@@ -15,12 +14,7 @@ import type { ShimejiConfig } from "./responder.js";
 
 const DefaultSpriteSheetId = "default";
 const DefaultSpriteSheetPath = join(process.cwd(), "src", "renderer", "src", "assets", "character.png");
-const DefaultSpriteChromaKey = "#ff008e";
 const SpriteSheetFrameCount = 4;
-const DefaultChromaKeyThreshold = 8;
-const MinChromaKeyThreshold = 0;
-const MaxChromaKeyThreshold = 64;
-const MinChromaKeySmoothness = 4;
 
 export interface CharacterAabb {
   readonly x: number;
@@ -29,28 +23,10 @@ export interface CharacterAabb {
   readonly height: number;
 }
 
-interface RgbColor {
-  readonly red: number;
-  readonly green: number;
-  readonly blue: number;
-}
-
-interface RgbaColor extends RgbColor {
-  readonly alpha: number;
-}
-
-interface HsvColor {
-  readonly hue: number;
-  readonly saturation: number;
-  readonly value: number;
-}
-
 interface SpriteSheetDefinition {
   readonly id: string;
   readonly name: string;
   readonly path: string;
-  readonly chromaKey: string;
-  readonly chromaThreshold: number;
   readonly isDefault: boolean;
 }
 
@@ -79,30 +55,15 @@ export function calculateCharacterAabb(characterLayout: CharacterLayout): Charac
     };
   }
 
-  const chromaKey = parseHexColor(activeSpriteSheet.chromaKey);
   const frameWidth = Math.max(1, Math.floor(size.width / SpriteSheetFrameCount));
   const bitmap = image.toBitmap();
 
   for (let y = 0; y < size.height; y += 1) {
     for (let x = 0; x < size.width; x += 1) {
       const pixelOffset = (y * size.width + x) * 4;
-      const blue = bitmap[pixelOffset];
-      const green = bitmap[pixelOffset + 1];
-      const red = bitmap[pixelOffset + 2];
       const alpha = bitmap[pixelOffset + 3];
 
-      if (
-        blue === undefined ||
-        green === undefined ||
-        red === undefined ||
-        alpha === undefined ||
-        alpha === 0
-      ) {
-        continue;
-      }
-
-      const mask = createChromaMask({ red, green, blue, alpha }, chromaKey, activeSpriteSheet.chromaThreshold);
-      if (mask.alphaMultiplier === 0) {
+      if (alpha === undefined || alpha === 0) {
         continue;
       }
 
@@ -142,7 +103,6 @@ export function getAppearanceSettings(): AppearanceSettings {
     activeSpriteSheetId,
     spriteSheets: spriteSheets.map((sheet) => toSpriteSheetSettings(sheet, activeSpriteSheetId)),
     spriteSheetDataUrl: createSpriteSheetDataUrl(activeSpriteSheet),
-    rawSpriteSheetDataUrl: createRawSpriteSheetDataUrl(activeSpriteSheet),
   };
 }
 
@@ -185,8 +145,6 @@ export async function uploadSpriteSheet(upload: SpriteSheetUpload): Promise<Appe
           id,
           name: displayFileName,
           path: spriteSheetPath,
-          chromaKey: DefaultSpriteChromaKey,
-          chromaThreshold: DefaultChromaKeyThreshold,
         },
       ],
     },
@@ -208,59 +166,6 @@ export function selectSpriteSheet(id: string): AppearanceSettings {
     appearance: {
       ...config.appearance,
       activeSpriteSheetId: id,
-    },
-  });
-
-  return getAppearanceSettings();
-}
-
-export function updateSpriteSheet(update: SpriteSheetUpdate): AppearanceSettings {
-  const config = readShimejiConfig();
-  const chromaKey = normalizeHexColor(update.chromaKey);
-  const chromaThreshold = normalizeChromaThreshold(update.chromaThreshold);
-
-  if (update.id === DefaultSpriteSheetId) {
-    writeShimejiConfig({
-      ...config,
-      appearance: {
-        ...config.appearance,
-        spriteChromaKey: chromaKey,
-        spriteChromaThreshold: chromaThreshold,
-      },
-    });
-    return getAppearanceSettings();
-  }
-
-  if (update.id === "legacy-custom" && config.appearance?.customSpriteSheetPath !== undefined) {
-    writeShimejiConfig({
-      ...config,
-      appearance: {
-        ...config.appearance,
-        spriteChromaKey: chromaKey,
-        spriteChromaThreshold: chromaThreshold,
-      },
-    });
-    return getAppearanceSettings();
-  }
-
-  const spriteSheets = config.appearance?.spriteSheets ?? [];
-  if (!spriteSheets.some((sheet) => sheet.id === update.id)) {
-    throw new Error(`Sprite sheet not found: ${update.id}`);
-  }
-
-  writeShimejiConfig({
-    ...config,
-    appearance: {
-      ...config.appearance,
-      spriteSheets: spriteSheets.map((sheet) =>
-        sheet.id === update.id ?
-          {
-            ...sheet,
-            chromaKey,
-            chromaThreshold,
-          }
-        : sheet,
-      ),
     },
   });
 
@@ -313,136 +218,12 @@ export async function deleteSpriteSheet(id: string): Promise<AppearanceSettings>
   return getAppearanceSettings();
 }
 
-function normalizeHexColor(color: string | undefined): string {
-  const trimmed = color?.trim().replace(/^#/, "") ?? "";
-  const expanded =
-    /^[0-9a-fA-F]{3}$/.test(trimmed) ?
-      trimmed
-        .split("")
-        .map((value) => `${value}${value}`)
-        .join("")
-    : trimmed;
-
-  if (!/^[0-9a-fA-F]{6}$/.test(expanded)) {
-    return DefaultSpriteChromaKey;
-  }
-
-  return `#${expanded.toLowerCase()}`;
-}
-
-function parseHexColor(color: string): RgbColor {
-  const normalized = normalizeHexColor(color);
-  return {
-    red: Number.parseInt(normalized.slice(1, 3), 16),
-    green: Number.parseInt(normalized.slice(3, 5), 16),
-    blue: Number.parseInt(normalized.slice(5, 7), 16),
-  };
-}
-
-function normalizeChromaThreshold(threshold: number | undefined): number {
-  if (threshold === undefined || !Number.isFinite(threshold)) {
-    return DefaultChromaKeyThreshold;
-  }
-
-  return Math.min(MaxChromaKeyThreshold, Math.max(MinChromaKeyThreshold, Math.round(threshold)));
-}
-
-function rgbToHsv(color: RgbColor): HsvColor {
-  const red = color.red / 255;
-  const green = color.green / 255;
-  const blue = color.blue / 255;
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const delta = max - min;
-
-  if (delta === 0) {
-    return {
-      hue: 0,
-      saturation: max === 0 ? 0 : delta / max,
-      value: max,
-    };
-  }
-
-  let hue: number;
-  if (max === red) {
-    hue = ((green - blue) / delta) % 6;
-  } else if (max === green) {
-    hue = (blue - red) / delta + 2;
-  } else {
-    hue = (red - green) / delta + 4;
-  }
-
-  return {
-    hue: (hue * 60 + 360) % 360,
-    saturation: max === 0 ? 0 : delta / max,
-    value: max,
-  };
-}
-
-function getHueDistance(first: number, second: number): number {
-  const distance = Math.abs(first - second);
-  return Math.min(distance, 360 - distance);
-}
-
-function getChromaDistance(pixel: RgbColor, chromaKey: RgbColor): number {
-  const pixelHsv = rgbToHsv(pixel);
-  const keyHsv = rgbToHsv(chromaKey);
-  const hueDistance = getHueDistance(pixelHsv.hue, keyHsv.hue) / 180;
-  const saturationDistance = Math.abs(pixelHsv.saturation - keyHsv.saturation);
-  const valueDistance = Math.abs(pixelHsv.value - keyHsv.value);
-  const rgbDistance =
-    Math.hypot(pixel.red - chromaKey.red, pixel.green - chromaKey.green, pixel.blue - chromaKey.blue) /
-    Math.hypot(255, 255, 255);
-
-  return Math.min(255, (hueDistance * 0.52 + saturationDistance * 0.23 + valueDistance * 0.1 + rgbDistance * 0.15) * 255);
-}
-
-function createChromaMask(pixel: RgbaColor, chromaKey: RgbColor, threshold: number): { readonly alphaMultiplier: number } {
-  const distance = getChromaDistance(pixel, chromaKey);
-  const effectiveThreshold = Math.max(6, threshold * 1.35);
-
-  if (distance <= effectiveThreshold) {
-    return {
-      alphaMultiplier: 0,
-    };
-  }
-
-  const smoothness = Math.max(MinChromaKeySmoothness, effectiveThreshold * 1.35);
-  const softEdgeEnd = effectiveThreshold + smoothness;
-
-  if (distance >= softEdgeEnd) {
-    return {
-      alphaMultiplier: 1,
-    };
-  }
-
-  const t = smoothStep((distance - effectiveThreshold) / smoothness);
-  return {
-    alphaMultiplier: t * t,
-  };
-}
-
-function smoothStep(value: number): number {
-  const clamped = Math.min(1, Math.max(0, value));
-  return clamped * clamped * (3 - 2 * clamped);
-}
-
-function decontaminateChroma(value: number, chromaValue: number, alphaMultiplier: number): number {
-  if (alphaMultiplier <= 0) {
-    return value;
-  }
-
-  return Math.round(Math.min(255, Math.max(0, (value - chromaValue * (1 - alphaMultiplier)) / alphaMultiplier)));
-}
-
 function getSpriteSheetDefinitions(config: ShimejiConfig): SpriteSheetDefinition[] {
   const definitions: SpriteSheetDefinition[] = [
     {
       id: DefaultSpriteSheetId,
       name: "character.png",
       path: DefaultSpriteSheetPath,
-      chromaKey: normalizeHexColor(config.appearance?.spriteChromaKey),
-      chromaThreshold: normalizeChromaThreshold(config.appearance?.spriteChromaThreshold),
       isDefault: true,
     },
   ];
@@ -463,8 +244,6 @@ function getSpriteSheetDefinitions(config: ShimejiConfig): SpriteSheetDefinition
       id: sheet.id,
       name: sheet.name,
       path: sheet.path,
-      chromaKey: normalizeHexColor(sheet.chromaKey),
-      chromaThreshold: normalizeChromaThreshold(sheet.chromaThreshold),
       isDefault: false,
     });
   }
@@ -474,8 +253,6 @@ function getSpriteSheetDefinitions(config: ShimejiConfig): SpriteSheetDefinition
       id: "legacy-custom",
       name: config.appearance.customSpriteSheetName ?? "custom-sprite-sheet.png",
       path: config.appearance.customSpriteSheetPath,
-      chromaKey: normalizeHexColor(config.appearance.spriteChromaKey),
-      chromaThreshold: normalizeChromaThreshold(config.appearance.spriteChromaThreshold),
       isDefault: false,
     });
   }
@@ -504,54 +281,13 @@ function getActiveSpriteSheetDefinition(config: ShimejiConfig): SpriteSheetDefin
       id: DefaultSpriteSheetId,
       name: "character.png",
       path: DefaultSpriteSheetPath,
-      chromaKey: DefaultSpriteChromaKey,
-      chromaThreshold: DefaultChromaKeyThreshold,
       isDefault: true,
     }
   );
 }
 
-function createProcessedSpriteSheetImage(path: string, chromaKey: string, chromaThreshold: number): ReturnType<typeof nativeImage.createFromPath> {
-  const image = nativeImage.createFromPath(path);
-  const size = image.getSize();
-
-  if (image.isEmpty() || size.width === 0 || size.height === 0) {
-    return image;
-  }
-
-  const key = parseHexColor(chromaKey);
-  const bitmap = Buffer.from(image.toBitmap());
-
-  for (let offset = 0; offset < bitmap.length; offset += 4) {
-    const blue = bitmap[offset];
-    const green = bitmap[offset + 1];
-    const red = bitmap[offset + 2];
-
-    if (blue === undefined || green === undefined || red === undefined) {
-      continue;
-    }
-
-    const alpha = bitmap[offset + 3] ?? 0;
-    const mask = createChromaMask({ red, green, blue, alpha }, key, chromaThreshold);
-
-    if (mask.alphaMultiplier === 0) {
-      bitmap[offset + 3] = 0;
-      continue;
-    }
-
-    if (mask.alphaMultiplier < 1) {
-      bitmap[offset] = decontaminateChroma(blue, key.blue, mask.alphaMultiplier);
-      bitmap[offset + 1] = decontaminateChroma(green, key.green, mask.alphaMultiplier);
-      bitmap[offset + 2] = decontaminateChroma(red, key.red, mask.alphaMultiplier);
-      bitmap[offset + 3] = Math.round(alpha * mask.alphaMultiplier);
-    }
-  }
-
-  return nativeImage.createFromBitmap(bitmap, size);
-}
-
 function createSpriteSheetDataUrl(spriteSheet: SpriteSheetDefinition): string {
-  const image = createProcessedSpriteSheetImage(spriteSheet.path, spriteSheet.chromaKey, spriteSheet.chromaThreshold);
+  const image = nativeImage.createFromPath(spriteSheet.path);
   const size = image.getSize();
 
   if (image.isEmpty() || size.width === 0 || size.height === 0) {
@@ -560,30 +296,6 @@ function createSpriteSheetDataUrl(spriteSheet: SpriteSheetDefinition): string {
         id: DefaultSpriteSheetId,
         name: "character.png",
         path: DefaultSpriteSheetPath,
-        chromaKey: DefaultSpriteChromaKey,
-        chromaThreshold: DefaultChromaKeyThreshold,
-        isDefault: true,
-      });
-    }
-
-    return "";
-  }
-
-  return image.toDataURL();
-}
-
-function createRawSpriteSheetDataUrl(spriteSheet: SpriteSheetDefinition): string {
-  const image = nativeImage.createFromPath(spriteSheet.path);
-  const size = image.getSize();
-
-  if (image.isEmpty() || size.width === 0 || size.height === 0) {
-    if (spriteSheet.path !== DefaultSpriteSheetPath) {
-      return createRawSpriteSheetDataUrl({
-        id: DefaultSpriteSheetId,
-        name: "character.png",
-        path: DefaultSpriteSheetPath,
-        chromaKey: DefaultSpriteChromaKey,
-        chromaThreshold: DefaultChromaKeyThreshold,
         isDefault: true,
       });
     }
@@ -595,7 +307,7 @@ function createRawSpriteSheetDataUrl(spriteSheet: SpriteSheetDefinition): string
 }
 
 function createSpriteSheetPreviewDataUrl(spriteSheet: SpriteSheetDefinition): string {
-  const image = createProcessedSpriteSheetImage(spriteSheet.path, spriteSheet.chromaKey, spriteSheet.chromaThreshold);
+  const image = nativeImage.createFromPath(spriteSheet.path);
   const size = image.getSize();
 
   if (image.isEmpty() || size.width === 0 || size.height === 0) {
@@ -630,8 +342,6 @@ function toSpriteSheetSettings(sheet: SpriteSheetDefinition, activeSpriteSheetId
   return {
     id: sheet.id,
     name: sheet.name,
-    chromaKey: sheet.chromaKey,
-    chromaThreshold: sheet.chromaThreshold,
     previewDataUrl: createSpriteSheetPreviewDataUrl(sheet),
     isDefault: sheet.isDefault,
     isActive: sheet.id === activeSpriteSheetId,

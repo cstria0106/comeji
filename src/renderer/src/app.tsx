@@ -21,7 +21,7 @@ import {
 import type { AppearanceSettings, CodexSessionMessage, CodexSessionSummary, PromptSettings, SpriteSheetSettings } from "../../shared/shimeji-api";
 import { CharacterView } from "./character-view";
 import { ChatView } from "./chat-view";
-import { Button, EmptyState, InfoTooltip, SectionCard, SessionDetail, SessionList, SettingsTab, StatusBox, modeButtonClass } from "./settings-ui";
+import { Button, InfoTooltip, SectionCard, SessionDetail, SessionList, SettingsTab, StatusBox, modeButtonClass } from "./settings-ui";
 import "./styles.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -63,14 +63,9 @@ function SettingsView(): React.JSX.Element {
   const [userInstructions, setUserInstructions] = useState("");
   const [scale, setScale] = useState(DefaultCharacterScale);
   const [spriteSheets, setSpriteSheets] = useState<readonly SpriteSheetSettings[]>([]);
-  const [activeSpriteSheetId, setActiveSpriteSheetId] = useState("default");
-  const [draftChromaKey, setDraftChromaKey] = useState("#ff008e");
-  const [draftChromaThreshold, setDraftChromaThreshold] = useState(8);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [busyAction, setBusyAction] = useState<string | undefined>(window.shimeji === undefined ? "preload" : undefined);
   const scalePercent = useMemo(() => `${Math.round(scale * 100)}%`, [scale]);
-  const activeSpriteSheet = useMemo(() => spriteSheets.find((sheet) => sheet.id === activeSpriteSheetId), [activeSpriteSheetId, spriteSheets]);
-  const chromaDraftChanged = activeSpriteSheet !== undefined && (draftChromaKey !== activeSpriteSheet.chromaKey || draftChromaThreshold !== activeSpriteSheet.chromaThreshold);
 
   const loadSessions = useCallback(async (): Promise<void> => {
     if (window.shimeji === undefined) {
@@ -91,17 +86,7 @@ function SettingsView(): React.JSX.Element {
   function applyAppearanceSettings(settings: AppearanceSettings): void {
     setScale(settings.characterScale);
     setSpriteSheets(settings.spriteSheets);
-    setActiveSpriteSheetId(settings.activeSpriteSheetId);
   }
-
-  useEffect(() => {
-    if (activeSpriteSheet === undefined) {
-      return;
-    }
-
-    setDraftChromaKey(activeSpriteSheet.chromaKey);
-    setDraftChromaThreshold(activeSpriteSheet.chromaThreshold);
-  }, [activeSpriteSheet]);
 
   useEffect(() => {
     if (window.shimeji === undefined) {
@@ -227,30 +212,6 @@ function SettingsView(): React.JSX.Element {
     try {
       applyAppearanceSettings(await window.shimeji.selectSpriteSheet(id));
       setStatusText("스프라이트를 적용했어요.");
-    } finally {
-      setBusyAction(undefined);
-    }
-  }
-
-  async function saveSpriteSheetChroma(): Promise<void> {
-    if (window.shimeji === undefined || activeSpriteSheet === undefined) {
-      return;
-    }
-
-    setBusyAction(`sprite-update-${activeSpriteSheet.id}`);
-    setStatusText("스프라이트 배경색을 조정하고 있어요.");
-    try {
-      applyAppearanceSettings(
-        await window.shimeji.updateSpriteSheet({
-          id: activeSpriteSheet.id,
-          chromaKey: draftChromaKey,
-          chromaThreshold: draftChromaThreshold,
-        }),
-      );
-      setStatusText("스프라이트 설정을 저장했어요.");
-    } catch (error) {
-      setStatusText("스프라이트 설정을 저장하지 못했어요.");
-      console.error(error);
     } finally {
       setBusyAction(undefined);
     }
@@ -469,7 +430,7 @@ function SettingsView(): React.JSX.Element {
                   </div>
                 </div>
 
-                <div className="grid min-h-0 gap-4 md:grid-cols-[minmax(0,1fr)_280px]">
+                <div className="min-h-0">
                   <div className="min-h-0">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
@@ -505,7 +466,7 @@ function SettingsView(): React.JSX.Element {
                               <strong className="truncate text-sm font-semibold text-slate-950">{sheet.name}</strong>
                               {sheet.isActive ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700">사용 중</span> : null}
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">{sheet.chromaKey} · threshold {sheet.chromaThreshold}</p>
+                            <p className="mt-1 text-xs text-slate-500">{sheet.isDefault ? "기본 스프라이트" : "업로드한 스프라이트"}</p>
                           </div>
                           <div className="flex shrink-0 gap-1.5">
                             <Button
@@ -532,66 +493,6 @@ function SettingsView(): React.JSX.Element {
                       ))}
                     </div>
                   </div>
-
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-700">크로마키</span>
-                      <InfoTooltip text="선택한 스프라이트마다 배경색과 허용 범위를 따로 저장해요." />
-                    </div>
-                    {activeSpriteSheet !== undefined ?
-                      <div className="mt-3 space-y-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <div className="flex h-24 items-center justify-center rounded-md border border-slate-200 bg-white">
-                          {activeSpriteSheet.previewDataUrl.length > 0 ? <img className="max-h-20 max-w-full object-contain" src={activeSpriteSheet.previewDataUrl} alt="" /> : null}
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-slate-600" htmlFor="sprite-chroma-key">
-                            배경색
-                          </label>
-                          <div className="mt-2 flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-2 shadow-sm">
-                            <input
-                              id="sprite-chroma-key"
-                              className="size-6 rounded border border-slate-200 bg-transparent"
-                              type="color"
-                              value={isHexColor(draftChromaKey) ? draftChromaKey : "#ff008e"}
-                              disabled={controlsDisabled}
-                              onChange={(event) => setDraftChromaKey(event.currentTarget.value)}
-                            />
-                            <input
-                              className="min-w-0 flex-1 bg-transparent text-sm font-medium text-slate-700 outline-none"
-                              value={draftChromaKey}
-                              disabled={controlsDisabled}
-                              onChange={(event) => setDraftChromaKey(event.currentTarget.value)}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between gap-2">
-                            <label className="text-xs font-medium text-slate-600" htmlFor="sprite-chroma-threshold">
-                              Threshold
-                            </label>
-                            <span className="text-xs font-semibold text-slate-600">{draftChromaThreshold}</span>
-                          </div>
-                          <input
-                            id="sprite-chroma-threshold"
-                            className="settings-scale-input mt-2"
-                            type="range"
-                            min={0}
-                            max={64}
-                            step={1}
-                            value={draftChromaThreshold}
-                            disabled={controlsDisabled}
-                            onChange={(event) => setDraftChromaThreshold(Number(event.currentTarget.value))}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-slate-500">{chromaDraftChanged ? "저장하면 캐릭터와 미리보기에 반영돼요." : "저장된 크로마키 설정이에요."}</span>
-                          <Button type="button" className="h-8 px-2 text-xs" disabled={controlsDisabled || !chromaDraftChanged} onClick={() => void saveSpriteSheetChroma()}>
-                            저장
-                          </Button>
-                        </div>
-                      </div>
-                    : <EmptyState>스프라이트를 선택하면 미리보기를 보여줄게요.</EmptyState>}
-                  </div>
                 </div>
               </div>
               <div className="mt-5 flex justify-end">
@@ -607,8 +508,4 @@ function SettingsView(): React.JSX.Element {
       </main>
     </Tooltip.Provider>
   );
-}
-
-function isHexColor(value: string): boolean {
-  return /^#[0-9a-fA-F]{6}$/.test(value);
 }
