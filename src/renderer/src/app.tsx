@@ -455,7 +455,6 @@ function SettingsView(): React.JSX.Element {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <span className="text-sm font-medium text-slate-700">스프라이트 시트</span>
-                        <p className="mt-1 text-xs text-slate-500">업로드한 파일은 프로젝트의 .shimeji/sprites 폴더에 따로 저장돼요.</p>
                       </div>
                       <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50">
                         <Upload className="size-4" />
