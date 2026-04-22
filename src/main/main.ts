@@ -189,12 +189,14 @@ async function createCharacterWindow(): Promise<void> {
   const floor = getPrimaryDesktopFloor(characterLayout.displaySize);
   const initialCharacterX = floor.x + 40;
   const initialCharacterY = floor.y;
+  const characterViewportHeight = floor.y - floor.top + characterLayout.displaySize;
+  const characterRenderOffsetY = floor.y - floor.top;
 
   characterWindow = new BrowserWindow({
     width: characterLayout.windowWidth,
-    height: characterLayout.windowHeight,
+    height: characterViewportHeight,
     x: Math.round(initialCharacterX - characterLayout.paddingLeft),
-    y: Math.round(initialCharacterY - characterLayout.paddingTop),
+    y: Math.round(initialCharacterY - characterRenderOffsetY),
     frame: false,
     resizable: false,
     transparent: true,
@@ -255,9 +257,9 @@ async function createCharacterWindow(): Promise<void> {
     width: characterLayout.displaySize,
     height: characterLayout.displaySize,
     viewportWidth: characterLayout.windowWidth,
-    viewportHeight: characterLayout.windowHeight,
+    viewportHeight: characterViewportHeight,
     renderOffsetX: characterLayout.paddingLeft,
-    renderOffsetY: characterLayout.paddingTop,
+    renderOffsetY: characterRenderOffsetY,
     grabOffsetX: characterLayout.grabDisplayX,
     grabOffsetY: characterLayout.grabDisplayY,
   });

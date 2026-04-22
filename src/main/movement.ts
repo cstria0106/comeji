@@ -158,6 +158,10 @@ export class DesktopWalker {
       return;
     }
 
+    if (this.baseRenderOffsetY >= this.floor.y - this.floor.top) {
+      return;
+    }
+
     const availableAboveCharacter = Math.max(0, this.y - this.floor.top);
     const desiredRenderOffsetY = Math.ceil(height + 32 - this.height * 0.16);
     const nextRenderOffsetY = this.clamp(Math.max(this.baseRenderOffsetY, desiredRenderOffsetY), this.baseRenderOffsetY, availableAboveCharacter);
