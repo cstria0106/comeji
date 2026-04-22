@@ -1,0 +1,91 @@
+name: Release portable EXE
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate-tag:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.tag.outputs.release }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Check tag format
+        id: tag
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+
+          if [[ "$tag" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$tag" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "release=false" >> "$GITHUB_OUTPUT"
+          echo "Tag '$tag' does not match the release format: MAJOR.MINOR.PATCH"
+
+  build-release:
+    name: Build and publish release
+    needs: validate-tag
+    if: needs.validate-tag.outputs.release == 'true'
+    runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+      RELEASE_VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build app
+        run: pnpm run build
+
+      - name: Build portable executable
+        run: pnpm exec electron-builder --win portable --config.extraMetadata.version=$env:RELEASE_VERSION
+
+      - name: Verify portable executable
+        shell: pwsh
+        run: |
+          $artifact = Get-ChildItem -Path release -Filter "Shimeji-$env:RELEASE_VERSION-portable.exe" -File
+          if (-not $artifact) {
+            throw "Portable executable was not found for version $env:RELEASE_VERSION."
+          }
+
+          $artifact | Format-Table -AutoSize Name, Length, LastWriteTime
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Shimeji ${{ github.ref_name }}
+          files: release/Shimeji-${{ needs.validate-tag.outputs.version }}-portable.exe
+          fail_on_unmatched_files: true
+          generate_release_notes: true
