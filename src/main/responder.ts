@@ -433,7 +433,7 @@ class CodexAppServerResponder implements ManagedChatResponder {
       mode: this.mode,
       model: process.env.SHIMEJI_CODEX_MODEL ?? codexConfig.model,
       sandboxMode: codexConfig.sandboxMode ?? (this.mode === "agent" ? "workspace-write" : "read-only"),
-      approvalPolicy: codexConfig.approvalPolicy ?? getDefaultApprovalPolicy(this.mode),
+      approvalPolicy: getDefaultApprovalPolicy(this.mode),
       modelReasoningEffort: codexConfig.modelReasoningEffort ?? "low",
       webSearchMode: codexConfig.webSearchMode ?? "disabled",
       developerInstructions: buildDeveloperInstructions(this.mode, getUserInstructions(codexConfig)),

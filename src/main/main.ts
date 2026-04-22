@@ -284,7 +284,7 @@ function savePromptSettings(settings: PromptSettings): void {
   const workingDirectory = settings.workingDirectory.trim();
   const defaultWorkingDirectory = getApplicationBaseDirectory();
   const userInstructions = settings.userInstructions.trim();
-  const approvalPolicy = config.codex?.approvalPolicy ?? (mode === "agent" ? "on-request" : "never");
+  const approvalPolicy = mode === "agent" ? "on-request" : "never";
 
   writeShimejiConfig({
     ...config,
