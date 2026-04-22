@@ -61,7 +61,7 @@ export interface SpriteSheetSaveResult {
   readonly filePath?: string;
 }
 
-export interface ShimejiApi {
+export interface ComejiApi {
   readonly onCharacterState: (listener: (state: CharacterState) => void) => () => void;
   readonly onSpeech: (listener: (message: SpeechMessage) => void) => () => void;
   readonly onAppearanceSettings: (listener: (settings: AppearanceSettings) => void) => () => void;

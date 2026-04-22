@@ -1,5 +1,5 @@
-import type { PromptSettings } from "../shared/shimeji-api.js";
-import type { ShimejiConfig } from "./responder.js";
+import type { PromptSettings } from "../shared/comeji-api.js";
+import type { ComejiConfig } from "./responder.js";
 
 export const CharacterModeInstructions = [
   "You are the conversation brain for a small desktop character.",
@@ -22,7 +22,7 @@ export const AgentModeInstructions = [
   "Do not mention internal sandbox, approval policy, or Codex unless the user asks about them.",
 ].join("\n");
 
-export function getUserInstructions(config: ShimejiConfig["codex"]): string {
+export function getUserInstructions(config: ComejiConfig["codex"]): string {
   if (config?.userInstructions !== undefined) {
     return config.userInstructions.trim();
   }

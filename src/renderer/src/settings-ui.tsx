@@ -2,7 +2,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { Trash2 } from "lucide-react";
 import React from "react";
 import { twMerge } from "tailwind-merge";
-import type { CodexSessionMessage, CodexSessionSummary } from "../../shared/shimeji-api";
+import type { CodexSessionMessage, CodexSessionSummary } from "../../shared/comeji-api";
 
 export function SettingsTab(props: { readonly value: string; readonly icon: React.ReactNode; readonly label: string }): React.JSX.Element {
   return (

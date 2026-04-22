@@ -13,8 +13,8 @@ import type {
   AppearanceSettingsInput,
   PromptSettings,
   SpriteSheetUpload,
-} from "../shared/shimeji-api.js";
-import { DevServerFilePath, readShimejiConfig, writeShimejiConfig } from "./config.js";
+} from "../shared/comeji-api.js";
+import { DevServerFilePath, readComejiConfig, writeComejiConfig } from "./config.js";
 import { getPrimaryDesktopFloor } from "./display.js";
 import { DesktopWalker } from "./movement.js";
 import { buildDeveloperInstructions, getUserInstructions } from "./prompts.js";
@@ -269,24 +269,24 @@ async function createCharacterWindow(): Promise<void> {
 }
 
 function getPromptSettings(): PromptSettings {
-  const config = readShimejiConfig();
+  const config = readComejiConfig();
   const defaultWorkingDirectory = getApplicationBaseDirectory();
   return {
     mode: config.codex?.mode === "agent" ? "agent" : "character",
-    workingDirectory: process.env.SHIMEJI_CODEX_WORKDIR ?? config.codex?.workingDirectory ?? defaultWorkingDirectory,
+    workingDirectory: process.env.COMEJI_CODEX_WORKDIR ?? config.codex?.workingDirectory ?? defaultWorkingDirectory,
     userInstructions: getUserInstructions(config.codex),
   };
 }
 
 function savePromptSettings(settings: PromptSettings): void {
-  const config = readShimejiConfig();
+  const config = readComejiConfig();
   const mode = settings.mode === "agent" ? "agent" : "character";
   const workingDirectory = settings.workingDirectory.trim();
   const defaultWorkingDirectory = getApplicationBaseDirectory();
   const userInstructions = settings.userInstructions.trim();
   const approvalPolicy = mode === "agent" ? "on-request" : "never";
 
-  writeShimejiConfig({
+  writeComejiConfig({
     ...config,
     codex: {
       ...config.codex,
@@ -319,7 +319,7 @@ async function openSettingsWindow(): Promise<void> {
     hasShadow: true,
     skipTaskbar: false,
     alwaysOnTop: true,
-    title: "Shimeji Settings",
+    title: "Comeji Settings",
     webPreferences: {
       backgroundThrottling: false,
       nodeIntegration: false,

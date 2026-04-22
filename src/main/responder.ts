@@ -4,8 +4,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, dirname, extname, join } from "node:path";
 import readline from "node:readline";
 import type { SpeechMessage } from "../shared/character-state.js";
-import type { CodexLoginStatus, CodexSessionDetail, CodexSessionMessage, CodexSessionSummary } from "../shared/shimeji-api.js";
-import { ConfigFileName, getApplicationBaseDirectory, ShimejiConfigPath, ShimejiDataDirectory } from "./paths.js";
+import type { CodexLoginStatus, CodexSessionDetail, CodexSessionMessage, CodexSessionSummary } from "../shared/comeji-api.js";
+import { ConfigFileName, getApplicationBaseDirectory, ComejiConfigPath, ComejiDataDirectory } from "./paths.js";
 import { buildDeveloperInstructions, getUserInstructions } from "./prompts.js";
 
 type ChatProvider = "local" | "codex";
@@ -18,7 +18,7 @@ type CommandApprovalDecision = "accept" | "acceptForSession" | "decline" | "canc
 type FileChangeApprovalDecision = "accept" | "acceptForSession" | "decline" | "cancel";
 type LegacyReviewDecision = "approved" | "approved_for_session" | "denied" | "abort";
 
-type ShimejiConfig = {
+type ComejiConfig = {
   chatProvider?: ChatProvider;
   appearance?: {
     characterScale?: number;
@@ -149,7 +149,7 @@ type AppServerOptions = {
 };
 
 const EmptyMessageResponse = "말을 걸어주면 대답할게.";
-const DefaultStateFile = join(ShimejiDataDirectory, "chat-state.json");
+const DefaultStateFile = join(ComejiDataDirectory, "chat-state.json");
 const PackagedCodexCommandPath = join(process.resourcesPath, "codex", "codex", "codex.exe");
 const DevelopmentCodexCommandPath = join(getApplicationBaseDirectory(), "node_modules", ".bin", "codex.cmd");
 const MaxShownSessions = 100;
@@ -173,7 +173,7 @@ export function respondToMessageLocally(input: string): string {
   }
 
   if (normalized.includes("이름")) {
-    return "아직 이름은 없어. 임시로 시메지라고 불러줘.";
+    return "아직 이름은 없어. 임시로 코메지라고 불러줘.";
   }
 
   if (normalized.includes("뭐") || normalized.includes("무엇")) {
@@ -318,8 +318,8 @@ class CodexAppServerClient {
         id,
         params: {
           clientInfo: {
-            name: "shimeji",
-            title: "Shimeji",
+            name: "comeji",
+            title: "Comeji",
             version: "0.1.0",
           },
           capabilities: {
@@ -419,19 +419,19 @@ class CodexAppServerResponder implements ManagedChatResponder {
   private readonly options: AppServerOptions;
   private readonly client: CodexAppServerClient;
 
-  public constructor(config: ShimejiConfig) {
+  public constructor(config: ComejiConfig) {
     const codexConfig = config.codex ?? {};
     this.stateFilePath = codexConfig.stateFile ?? DefaultStateFile;
     ensureDirectory(dirname(this.stateFilePath));
     this.clearThreadId();
 
     this.mode = getCodexMode(codexConfig.mode);
-    this.workingDirectory = process.env.SHIMEJI_CODEX_WORKDIR ?? codexConfig.workingDirectory ?? getApplicationBaseDirectory();
+    this.workingDirectory = process.env.COMEJI_CODEX_WORKDIR ?? codexConfig.workingDirectory ?? getApplicationBaseDirectory();
     this.options = {
-      commandPath: process.env.SHIMEJI_CODEX_PATH ?? codexConfig.codexPath ?? getDefaultCodexCommandPath(),
+      commandPath: process.env.COMEJI_CODEX_PATH ?? codexConfig.codexPath ?? getDefaultCodexCommandPath(),
       workingDirectory: this.workingDirectory,
       mode: this.mode,
-      model: process.env.SHIMEJI_CODEX_MODEL ?? codexConfig.model,
+      model: process.env.COMEJI_CODEX_MODEL ?? codexConfig.model,
       sandboxMode: codexConfig.sandboxMode ?? (this.mode === "agent" ? "workspace-write" : "read-only"),
       approvalPolicy: getDefaultApprovalPolicy(this.mode),
       modelReasoningEffort: codexConfig.modelReasoningEffort ?? "low",
@@ -676,7 +676,7 @@ class CodexAppServerResponder implements ManagedChatResponder {
         model_reasoning_effort: this.options.modelReasoningEffort,
       },
       developerInstructions: this.options.developerInstructions,
-      serviceName: "Shimeji",
+      serviceName: "Comeji",
       experimentalRawEvents: false,
       persistExtendedHistory: true,
     };
@@ -1148,10 +1148,10 @@ function isRecord(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function readConfig(): ShimejiConfig {
+function readConfig(): ComejiConfig {
   try {
-    const rawConfig = readFileSync(ShimejiConfigPath, "utf8");
-    return JSON.parse(rawConfig) as ShimejiConfig;
+    const rawConfig = readFileSync(ComejiConfigPath, "utf8");
+    return JSON.parse(rawConfig) as ComejiConfig;
   } catch (error) {
     console.warn(`Could not read ${ConfigFileName}; using default chat responder.`, error);
     return {};
@@ -1160,7 +1160,7 @@ function readConfig(): ShimejiConfig {
 
 function createChatResponder(): ChatResponder {
   const config = readConfig();
-  const provider = process.env.SHIMEJI_CHAT_PROVIDER ?? config.chatProvider ?? "codex";
+  const provider = process.env.COMEJI_CHAT_PROVIDER ?? config.chatProvider ?? "codex";
 
   if (provider === "codex") {
     return new CodexAppServerResponder(config);
@@ -1251,4 +1251,4 @@ export function disposeChatResponder(): void {
 }
 
 export { ConfigFileName };
-export type { ShimejiConfig };
+export type { ComejiConfig };

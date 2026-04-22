@@ -2,7 +2,7 @@ import { Brain, CircleAlert, FilePenLine, ListChecks, MessageCircle, Search, Ter
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { CharacterState, PointerSample, SpeechMessage } from "../../shared/character-state";
 import { createCharacterLayout, DefaultCharacterScale } from "../../shared/character-layout";
-import type { AppearanceSettings } from "../../shared/shimeji-api";
+import type { AppearanceSettings } from "../../shared/comeji-api";
 
 export function CharacterView(): React.JSX.Element {
   const stageRef = useRef<HTMLElement>(null);
@@ -20,7 +20,7 @@ export function CharacterView(): React.JSX.Element {
       return;
     }
 
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       debug.textContent = "preload missing";
       debug.dataset.visible = "true";
       return;
@@ -32,7 +32,7 @@ export function CharacterView(): React.JSX.Element {
 
     const unbindCharacterState = bindCharacterState(sprite, spriteRenderer);
     const unbindPointerGestures = bindPointerGestures(stage);
-    const unbindAppearanceSettings = window.shimeji.onAppearanceSettings((settings) => {
+    const unbindAppearanceSettings = window.comeji.onAppearanceSettings((settings) => {
       void applyAppearanceSettings(settings, spriteRenderer);
     });
 
@@ -54,7 +54,7 @@ export function CharacterView(): React.JSX.Element {
 }
 
 async function applyAppearanceSettings(settings?: AppearanceSettings, spriteRenderer?: SpriteRenderer): Promise<void> {
-  const nextSettings = settings ?? (await window.shimeji.getAppearanceSettings());
+  const nextSettings = settings ?? (await window.comeji.getAppearanceSettings());
   applyCharacterLayoutVars(nextSettings);
   document.documentElement.style.setProperty("--character-sprite-sheet-url", `url("${nextSettings.spriteSheetDataUrl}")`);
   spriteRenderer?.setAppearance(nextSettings);
@@ -180,7 +180,7 @@ function bindCharacterState(spriteElement: HTMLCanvasElement, spriteRenderer: Sp
   }
 
   applyState({ facing: "right", motion: "walk", rotation: 0, renderX: 48, renderY: 112 });
-  return window.shimeji.onCharacterState(applyState);
+  return window.comeji.onCharacterState(applyState);
 }
 
 function SpeechBubble(): React.JSX.Element {
@@ -210,19 +210,19 @@ function SpeechBubble(): React.JSX.Element {
 
   const reportSpeechHeight = useCallback(() => {
     const speech = speechRef.current;
-    if (speech === null || window.shimeji === undefined) {
+    if (speech === null || window.comeji === undefined) {
       return;
     }
 
-    window.shimeji.reportSpeechBubbleHeight(speech.dataset.visible === "true" ? speech.scrollHeight : 0);
+    window.comeji.reportSpeechBubbleHeight(speech.dataset.visible === "true" ? speech.scrollHeight : 0);
   }, []);
 
   useEffect(() => {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
-    const unsubscribe = window.shimeji.onSpeech((nextMessage) => {
+    const unsubscribe = window.comeji.onSpeech((nextMessage) => {
       if (hideTimeoutRef.current !== undefined) {
         window.clearTimeout(hideTimeoutRef.current);
         hideTimeoutRef.current = undefined;
@@ -337,7 +337,7 @@ function bindPointerGestures(stage: HTMLElement): () => void {
     latest = sample;
     maxDistance = 0;
     isDragging = false;
-    window.shimeji.beginPointerCapture();
+    window.comeji.beginPointerCapture();
   }
 
   function handlePointerMove(event: PointerEvent): void {
@@ -353,11 +353,11 @@ function bindPointerGestures(stage: HTMLElement): () => void {
 
     if (!isDragging && maxDistance >= dragThreshold) {
       isDragging = true;
-      window.shimeji.beginDrag(sample);
+      window.comeji.beginDrag(sample);
     }
 
     if (isDragging) {
-      window.shimeji.drag(sample);
+      window.comeji.drag(sample);
     }
   }
 
@@ -373,17 +373,17 @@ function bindPointerGestures(stage: HTMLElement): () => void {
     const shouldOpenChat = !isDragging && maxDistance < dragThreshold && duration < 500;
 
     if (isDragging) {
-      window.shimeji.endDrag(sample);
+      window.comeji.endDrag(sample);
     }
 
     stage.releasePointerCapture(event.pointerId);
     start = undefined;
     latest = undefined;
     isDragging = false;
-    window.shimeji.endPointerCapture();
+    window.comeji.endPointerCapture();
 
     if (shouldOpenChat) {
-      window.shimeji.openChat();
+      window.comeji.openChat();
     }
   }
 
@@ -393,14 +393,14 @@ function bindPointerGestures(stage: HTMLElement): () => void {
     }
 
     if (isDragging) {
-      window.shimeji.endDrag(toPointerSample(event));
+      window.comeji.endDrag(toPointerSample(event));
     }
 
     stage.releasePointerCapture(event.pointerId);
     start = undefined;
     latest = undefined;
     isDragging = false;
-    window.shimeji.endPointerCapture();
+    window.comeji.endPointerCapture();
   }
 
   stage.addEventListener("pointerdown", handlePointerDown);

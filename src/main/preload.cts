@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { CharacterState, PointerSample, SpeechMessage } from "../shared/character-state.js";
-import type { AppearanceSettings, ShimejiApi } from "../shared/shimeji-api.js";
+import type { AppearanceSettings, ComejiApi } from "../shared/comeji-api.js";
 
-const api: ShimejiApi = {
+const api: ComejiApi = {
   onCharacterState(listener) {
     const channel = "character-state";
     const wrapped = (_event: Electron.IpcRendererEvent, state: CharacterState): void => {
@@ -104,4 +104,4 @@ const api: ShimejiApi = {
   },
 };
 
-contextBridge.exposeInMainWorld("shimeji", api);
+contextBridge.exposeInMainWorld("comeji", api);

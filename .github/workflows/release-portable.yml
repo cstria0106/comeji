@@ -74,7 +74,7 @@ jobs:
       - name: Verify portable executable
         shell: pwsh
         run: |
-          $artifact = Get-ChildItem -Path release -Filter "Shimeji-$env:RELEASE_VERSION-portable.exe" -File
+          $artifact = Get-ChildItem -Path release -Filter "Comeji-$env:RELEASE_VERSION-portable.exe" -File
           if (-not $artifact) {
             throw "Portable executable was not found for version $env:RELEASE_VERSION."
           }
@@ -85,7 +85,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Shimeji ${{ github.ref_name }}
-          files: release/Shimeji-${{ needs.validate-tag.outputs.version }}-portable.exe
+          name: Comeji ${{ github.ref_name }}
+          files: release/Comeji-${{ needs.validate-tag.outputs.version }}-portable.exe
           fail_on_unmatched_files: true
           generate_release_notes: true

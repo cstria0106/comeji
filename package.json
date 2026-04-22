@@ -1,11 +1,11 @@
 {
-  "name": "shimeji",
+  "name": "comeji",
   "version": "0.0.0-placeholder",
   "private": true,
   "type": "module",
   "main": "dist/main/main/main.js",
   "scripts": {
-    "dev": "pnpm run build:main && concurrently -k \"node .tools/dev-server.mjs\" \"wait-on .shimeji/dev-server.json && electron . --dev\"",
+    "dev": "pnpm run build:main && concurrently -k \"node .tools/dev-server.mjs\" \"wait-on .comeji/dev-server.json && electron . --dev\"",
     "build": "pnpm run build:main && vite build",
     "build:main": "tsc -p tsconfig.main.json",
     "dist": "pnpm run typecheck && pnpm run build && electron-builder --win portable",
@@ -13,8 +13,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json"
   },
   "build": {
-    "appId": "local.shimeji.app",
-    "productName": "Shimeji",
+    "appId": "local.comeji.app",
+    "productName": "Comeji",
     "directories": {
       "output": "release"
     },
@@ -36,7 +36,7 @@
       ]
     },
     "portable": {
-      "artifactName": "Shimeji-${version}-portable.exe"
+      "artifactName": "Comeji-${version}-portable.exe"
     }
   },
   "devDependencies": {

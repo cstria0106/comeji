@@ -1,8 +1,8 @@
-import type { ShimejiApi } from "../shared/shimeji-api";
+import type { ComejiApi } from "../shared/comeji-api";
 
 declare global {
   interface Window {
-    readonly shimeji: ShimejiApi;
+    readonly comeji: ComejiApi;
   }
 }
 

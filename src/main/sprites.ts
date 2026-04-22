@@ -8,10 +8,10 @@ import type {
   AppearanceSettingsInput,
   SpriteSheetSettings,
   SpriteSheetUpload,
-} from "../shared/shimeji-api.js";
-import { readShimejiConfig, SpriteSheetsDirectory, writeShimejiConfig } from "./config.js";
+} from "../shared/comeji-api.js";
+import { readComejiConfig, SpriteSheetsDirectory, writeComejiConfig } from "./config.js";
 import { getBundledAppPath } from "./paths.js";
-import type { ShimejiConfig } from "./responder.js";
+import type { ComejiConfig } from "./responder.js";
 
 const DefaultSpriteSheetId = "default";
 const DefaultSpriteSheetPath = getBundledAppPath("src", "renderer", "src", "assets", "character.png");
@@ -41,7 +41,7 @@ export function calculateCharacterAabb(characterLayout: CharacterLayout): Charac
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
-  const activeSpriteSheet = getActiveSpriteSheetDefinition(readShimejiConfig());
+  const activeSpriteSheet = getActiveSpriteSheetDefinition(readComejiConfig());
   const spriteSheetPath = activeSpriteSheet.path;
   let image = nativeImage.createFromPath(spriteSheetPath);
   let size = image.getSize();
@@ -99,7 +99,7 @@ export function calculateCharacterAabb(characterLayout: CharacterLayout): Charac
 }
 
 export function getAppearanceSettings(): AppearanceSettings {
-  const config = readShimejiConfig();
+  const config = readComejiConfig();
   const spriteSheets = getSpriteSheetDefinitions(config);
   const activeSpriteSheetId = getActiveSpriteSheetId(config, spriteSheets);
   const activeSpriteSheet = getActiveSpriteSheetDefinition(config);
@@ -113,9 +113,9 @@ export function getAppearanceSettings(): AppearanceSettings {
 }
 
 export function saveAppearanceSettings(settings: AppearanceSettingsInput): AppearanceSettings {
-  const config = readShimejiConfig();
+  const config = readComejiConfig();
   const layout = createCharacterLayout(settings.characterScale);
-  writeShimejiConfig({
+  writeComejiConfig({
     ...config,
     appearance: {
       ...config.appearance,
@@ -138,9 +138,9 @@ export async function uploadSpriteSheet(upload: SpriteSheetUpload): Promise<Appe
   const spriteSheetPath = getUploadedSpriteSheetPath(id, displayFileName);
   await writeFile(spriteSheetPath, Buffer.from(upload.bytes));
 
-  const config = readShimejiConfig();
+  const config = readComejiConfig();
   const existingSpriteSheets = config.appearance?.spriteSheets ?? [];
-  writeShimejiConfig({
+  writeComejiConfig({
     ...config,
     appearance: {
       ...config.appearance,
@@ -160,7 +160,7 @@ export async function uploadSpriteSheet(upload: SpriteSheetUpload): Promise<Appe
 }
 
 export function getActiveSpriteSheetFile(): ActiveSpriteSheetFile {
-  const activeSpriteSheet = getActiveSpriteSheetDefinition(readShimejiConfig());
+  const activeSpriteSheet = getActiveSpriteSheetDefinition(readComejiConfig());
   return {
     name: activeSpriteSheet.name,
     path: activeSpriteSheet.path,
@@ -168,19 +168,19 @@ export function getActiveSpriteSheetFile(): ActiveSpriteSheetFile {
 }
 
 export async function saveActiveSpriteSheetTo(destinationPath: string): Promise<void> {
-  const activeSpriteSheet = getActiveSpriteSheetDefinition(readShimejiConfig());
+  const activeSpriteSheet = getActiveSpriteSheetDefinition(readComejiConfig());
   await copyFile(activeSpriteSheet.path, destinationPath);
 }
 
 export function selectSpriteSheet(id: string): AppearanceSettings {
-  const config = readShimejiConfig();
+  const config = readComejiConfig();
   const spriteSheets = getSpriteSheetDefinitions(config);
 
   if (!spriteSheets.some((sheet) => sheet.id === id)) {
     throw new Error(`Sprite sheet not found: ${id}`);
   }
 
-  writeShimejiConfig({
+  writeComejiConfig({
     ...config,
     appearance: {
       ...config.appearance,
@@ -196,7 +196,7 @@ export async function deleteSpriteSheet(id: string): Promise<AppearanceSettings>
     throw new Error("The default sprite sheet cannot be deleted.");
   }
 
-  const config = readShimejiConfig();
+  const config = readComejiConfig();
 
   if (id === "legacy-custom" && config.appearance?.customSpriteSheetPath !== undefined) {
     await deleteManagedSpriteSheetFile(config.appearance.customSpriteSheetPath);
@@ -204,7 +204,7 @@ export async function deleteSpriteSheet(id: string): Promise<AppearanceSettings>
     delete appearance.customSpriteSheetPath;
     delete appearance.customSpriteSheetName;
     delete appearance.activeSpriteSheetId;
-    writeShimejiConfig({
+    writeComejiConfig({
       ...config,
       appearance: {
         ...appearance,
@@ -225,7 +225,7 @@ export async function deleteSpriteSheet(id: string): Promise<AppearanceSettings>
     await deleteManagedSpriteSheetFile(spriteSheet.path);
   }
 
-  writeShimejiConfig({
+  writeComejiConfig({
     ...config,
     appearance: {
       ...config.appearance,
@@ -237,7 +237,7 @@ export async function deleteSpriteSheet(id: string): Promise<AppearanceSettings>
   return getAppearanceSettings();
 }
 
-function getSpriteSheetDefinitions(config: ShimejiConfig): SpriteSheetDefinition[] {
+function getSpriteSheetDefinitions(config: ComejiConfig): SpriteSheetDefinition[] {
   const definitions: SpriteSheetDefinition[] = [
     {
       id: DefaultSpriteSheetId,
@@ -279,7 +279,7 @@ function getSpriteSheetDefinitions(config: ShimejiConfig): SpriteSheetDefinition
   return definitions;
 }
 
-function getActiveSpriteSheetId(config: ShimejiConfig, spriteSheets: readonly SpriteSheetDefinition[]): string {
+function getActiveSpriteSheetId(config: ComejiConfig, spriteSheets: readonly SpriteSheetDefinition[]): string {
   const configuredId = config.appearance?.activeSpriteSheetId;
   if (configuredId !== undefined && spriteSheets.some((sheet) => sheet.id === configuredId)) {
     return configuredId;
@@ -292,7 +292,7 @@ function getActiveSpriteSheetId(config: ShimejiConfig, spriteSheets: readonly Sp
   return DefaultSpriteSheetId;
 }
 
-function getActiveSpriteSheetDefinition(config: ShimejiConfig): SpriteSheetDefinition {
+function getActiveSpriteSheetDefinition(config: ComejiConfig): SpriteSheetDefinition {
   const spriteSheets = getSpriteSheetDefinitions(config);
   const activeId = getActiveSpriteSheetId(config, spriteSheets);
   return (

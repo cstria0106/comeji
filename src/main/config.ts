@@ -1,18 +1,18 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import type { ShimejiConfig } from "./responder.js";
-import { ShimejiConfigPath, ShimejiDataDirectory } from "./paths.js";
-export { DevServerFilePath, ShimejiDataDirectory, SpriteSheetsDirectory } from "./paths.js";
+import type { ComejiConfig } from "./responder.js";
+import { ComejiConfigPath, ComejiDataDirectory } from "./paths.js";
+export { DevServerFilePath, ComejiDataDirectory, SpriteSheetsDirectory } from "./paths.js";
 
-export function readShimejiConfig(): ShimejiConfig {
+export function readComejiConfig(): ComejiConfig {
   try {
-    return JSON.parse(readFileSync(ShimejiConfigPath, "utf8")) as ShimejiConfig;
+    return JSON.parse(readFileSync(ComejiConfigPath, "utf8")) as ComejiConfig;
   } catch (error) {
-    console.warn("Could not read Shimeji config.", error);
+    console.warn("Could not read Comeji config.", error);
     return {};
   }
 }
 
-export function writeShimejiConfig(config: ShimejiConfig): void {
-  mkdirSync(ShimejiDataDirectory, { recursive: true });
-  writeFileSync(ShimejiConfigPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+export function writeComejiConfig(config: ComejiConfig): void {
+  mkdirSync(ComejiDataDirectory, { recursive: true });
+  writeFileSync(ComejiConfigPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }

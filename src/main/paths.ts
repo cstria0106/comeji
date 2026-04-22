@@ -1,10 +1,10 @@
 import { app } from "electron";
 import { dirname, join } from "node:path";
 
-const DataDirectoryName = ".shimeji";
+const DataDirectoryName = ".comeji";
 const PortableExecutableDirectory = "PORTABLE_EXECUTABLE_DIR";
 
-export const ConfigFileName = "shimeji.config.json";
+export const ConfigFileName = "comeji.config.json";
 
 export function getApplicationBaseDirectory(): string {
   if (!app.isPackaged) {
@@ -23,7 +23,7 @@ export function getBundledAppPath(...segments: readonly string[]): string {
   return join(app.getAppPath(), ...segments);
 }
 
-export const ShimejiDataDirectory = join(getApplicationBaseDirectory(), DataDirectoryName);
-export const ShimejiConfigPath = join(ShimejiDataDirectory, ConfigFileName);
-export const SpriteSheetsDirectory = join(ShimejiDataDirectory, "sprites");
-export const DevServerFilePath = join(ShimejiDataDirectory, "dev-server.json");
+export const ComejiDataDirectory = join(getApplicationBaseDirectory(), DataDirectoryName);
+export const ComejiConfigPath = join(ComejiDataDirectory, ConfigFileName);
+export const SpriteSheetsDirectory = join(ComejiDataDirectory, "sprites");
+export const DevServerFilePath = join(ComejiDataDirectory, "dev-server.json");

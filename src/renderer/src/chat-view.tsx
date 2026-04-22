@@ -3,11 +3,11 @@ import React, { useEffect, useRef, useState } from "react";
 
 export function ChatView(): React.JSX.Element {
   const [message, setMessage] = useState("");
-  const [disabled, setDisabled] = useState(window.shimeji === undefined);
+  const [disabled, setDisabled] = useState(window.comeji === undefined);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       setMessage("preload missing");
       return;
     }
@@ -17,7 +17,7 @@ export function ChatView(): React.JSX.Element {
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.key === "Escape") {
         event.preventDefault();
-        window.shimeji.closeChat();
+        window.comeji.closeChat();
       }
     }
 
@@ -31,13 +31,13 @@ export function ChatView(): React.JSX.Element {
     event.preventDefault();
     const trimmedMessage = message.trim();
 
-    if (trimmedMessage.length === 0 || window.shimeji === undefined) {
+    if (trimmedMessage.length === 0 || window.comeji === undefined) {
       inputRef.current?.focus();
       return;
     }
 
     setDisabled(true);
-    void window.shimeji.submitChat(trimmedMessage);
+    void window.comeji.submitChat(trimmedMessage);
   }
 
   return (

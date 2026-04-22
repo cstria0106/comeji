@@ -18,7 +18,7 @@ import {
   MaxCharacterScale,
   MinCharacterScale,
 } from "../../shared/character-layout";
-import type { AppearanceSettings, CodexSessionMessage, CodexSessionSummary, PromptSettings, SpriteSheetSettings } from "../../shared/shimeji-api";
+import type { AppearanceSettings, CodexSessionMessage, CodexSessionSummary, PromptSettings, SpriteSheetSettings } from "../../shared/comeji-api";
 import { CharacterView } from "./character-view";
 import { ChatView } from "./chat-view";
 import { Button, ModeTooltip, SectionCard, SessionDetail, SessionList, SettingsTab, StatusBox, modeButtonClass } from "./settings-ui";
@@ -65,11 +65,11 @@ function SettingsView(): React.JSX.Element {
   const [scale, setScale] = useState(DefaultCharacterScale);
   const [spriteSheets, setSpriteSheets] = useState<readonly SpriteSheetSettings[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  const [busyAction, setBusyAction] = useState<string | undefined>(window.shimeji === undefined ? "preload" : undefined);
+  const [busyAction, setBusyAction] = useState<string | undefined>(window.comeji === undefined ? "preload" : undefined);
   const scalePercent = useMemo(() => `${Math.round(scale * 100)}%`, [scale]);
 
   const loadSessions = useCallback(async (showLoading = true): Promise<void> => {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
@@ -77,7 +77,7 @@ function SettingsView(): React.JSX.Element {
       setLoadingSessions(true);
     }
     try {
-      setSessions(await window.shimeji.listCodexSessions());
+      setSessions(await window.comeji.listCodexSessions());
     } catch (error) {
       if (showLoading) {
         setStatusText("세션을 불러오지 못했어요.");
@@ -96,18 +96,18 @@ function SettingsView(): React.JSX.Element {
   }
 
   useEffect(() => {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       setStatusText("preload missing");
       return;
     }
 
-    void window.shimeji.getPromptSettings().then((settings) => {
+    void window.comeji.getPromptSettings().then((settings) => {
       setCodexMode(settings.mode);
       setWorkingDirectory(settings.workingDirectory);
       setUserInstructions(settings.userInstructions);
     });
 
-    void window.shimeji.getAppearanceSettings().then((settings) => {
+    void window.comeji.getAppearanceSettings().then((settings) => {
       applyAppearanceSettings(settings);
     });
 
@@ -115,7 +115,7 @@ function SettingsView(): React.JSX.Element {
   }, [loadSessions]);
 
   useEffect(() => {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
@@ -127,14 +127,14 @@ function SettingsView(): React.JSX.Element {
   }, [loadSessions]);
 
   async function checkStatus(): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
     setBusyAction("status");
     setStatusText("확인하고 있어요.");
     try {
-      const status = await window.shimeji.getCodexLoginStatus();
+      const status = await window.comeji.getCodexLoginStatus();
       setStatusText(status.ok ? `로그인됨: ${status.text}` : `확인 실패: ${status.text}`);
     } catch (error) {
       setStatusText(`확인 실패: ${getErrorText(error)}`);
@@ -144,14 +144,14 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function createNewSession(): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
     setBusyAction("new-session");
     setStatusText("새 세션으로 바꾸고 있어요.");
     try {
-      await window.shimeji.clearCodexSession();
+      await window.comeji.clearCodexSession();
       setMessages([]);
       setSelectedSessionId(undefined);
       setStatusText("새 세션으로 시작할게요.");
@@ -162,14 +162,14 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function saveCodexSettings(): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
     setBusyAction("prompt");
     setStatusText("Codex 설정을 저장하고 있어요.");
     try {
-      await window.shimeji.savePromptSettings({
+      await window.comeji.savePromptSettings({
         mode: codexMode,
         workingDirectory,
         userInstructions,
@@ -182,14 +182,14 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function saveAppearance(): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
     setBusyAction("appearance");
     setStatusText("외형 설정을 저장하고 있어요.");
     try {
-      const settings = await window.shimeji.saveAppearanceSettings({ characterScale: scale });
+      const settings = await window.comeji.saveAppearanceSettings({ characterScale: scale });
       applyAppearanceSettings(settings);
       setStatusText("외형 설정을 저장했어요.");
     } finally {
@@ -198,7 +198,7 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function uploadSpriteSheet(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
@@ -212,7 +212,7 @@ function SettingsView(): React.JSX.Element {
     setBusyAction("sprite-upload");
     setStatusText("스프라이트 시트를 업로드하고 있어요.");
     try {
-      const settings = await window.shimeji.uploadSpriteSheet({
+      const settings = await window.comeji.uploadSpriteSheet({
         fileName: file.name,
         bytes: new Uint8Array(await file.arrayBuffer()),
       });
@@ -224,14 +224,14 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function saveActiveSpriteSheet(): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
     setBusyAction("sprite-save");
     setStatusText("스프라이트 시트를 저장할 위치를 고르고 있어요.");
     try {
-      const result = await window.shimeji.saveActiveSpriteSheet();
+      const result = await window.comeji.saveActiveSpriteSheet();
       setStatusText(result.canceled ? "스프라이트 저장을 취소했어요." : "스프라이트 시트를 파일로 저장했어요.");
     } finally {
       setBusyAction(undefined);
@@ -239,14 +239,14 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function selectSpriteSheet(id: string): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
     setBusyAction(`sprite-select-${id}`);
     setStatusText("스프라이트를 바꾸고 있어요.");
     try {
-      applyAppearanceSettings(await window.shimeji.selectSpriteSheet(id));
+      applyAppearanceSettings(await window.comeji.selectSpriteSheet(id));
       setStatusText("스프라이트를 적용했어요.");
     } finally {
       setBusyAction(undefined);
@@ -254,14 +254,14 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function deleteSpriteSheet(id: string): Promise<void> {
-    if (window.shimeji === undefined || !window.confirm("이 스프라이트 시트를 삭제할까요?")) {
+    if (window.comeji === undefined || !window.confirm("이 스프라이트 시트를 삭제할까요?")) {
       return;
     }
 
     setBusyAction(`sprite-delete-${id}`);
     setStatusText("스프라이트를 삭제하고 있어요.");
     try {
-      applyAppearanceSettings(await window.shimeji.deleteSpriteSheet(id));
+      applyAppearanceSettings(await window.comeji.deleteSpriteSheet(id));
       setStatusText("스프라이트를 삭제했어요.");
     } finally {
       setBusyAction(undefined);
@@ -269,7 +269,7 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function selectSession(sessionId: string): Promise<void> {
-    if (window.shimeji === undefined) {
+    if (window.comeji === undefined) {
       return;
     }
 
@@ -278,8 +278,8 @@ function SettingsView(): React.JSX.Element {
     setSelectedSessionId(sessionId);
     setMessages([]);
     try {
-      await window.shimeji.selectCodexSession(sessionId);
-      const detail = await window.shimeji.getCodexSessionDetail(sessionId);
+      await window.comeji.selectCodexSession(sessionId);
+      const detail = await window.comeji.getCodexSessionDetail(sessionId);
       setMessages(detail.messages);
       setStatusText("세션을 선택하고 내용을 불러왔어요.");
       await loadSessions();
@@ -289,14 +289,14 @@ function SettingsView(): React.JSX.Element {
   }
 
   async function archiveSession(sessionId: string): Promise<void> {
-    if (window.shimeji === undefined || !window.confirm("이 Codex 세션을 보관할까요?")) {
+    if (window.comeji === undefined || !window.confirm("이 Codex 세션을 보관할까요?")) {
       return;
     }
 
     setBusyAction(sessionId);
     setStatusText("세션을 보관하고 있어요.");
     try {
-      await window.shimeji.archiveCodexSession(sessionId);
+      await window.comeji.archiveCodexSession(sessionId);
       if (selectedSessionId === sessionId) {
         setSelectedSessionId(undefined);
         setMessages([]);
@@ -320,7 +320,7 @@ function SettingsView(): React.JSX.Element {
           </div>
           <div className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
             <Sparkles className="size-3.5 text-amber-500" />
-            Shimeji
+            Comeji
           </div>
         </header>
 
