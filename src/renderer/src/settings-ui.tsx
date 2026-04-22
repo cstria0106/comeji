@@ -130,7 +130,7 @@ export function SessionList(props: {
                 type="button"
                 variant="danger"
                 className="h-8 px-2"
-                aria-label="세션 삭제"
+                aria-label="세션 보관"
                 disabled={props.busyAction !== undefined}
                 onClick={() => props.onDelete(session.id)}
               >

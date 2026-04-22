@@ -1,9 +1,5 @@
 import { app, BrowserWindow, ipcMain, Menu, screen } from "electron";
-import { execFile } from "node:child_process";
-import { readFileSync, type Dirent } from "node:fs";
-import { open, readdir, stat, unlink } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   createCharacterLayout,
@@ -14,10 +10,6 @@ import type { PointerSample } from "../shared/character-state.js";
 import type {
   AppearanceSettings,
   AppearanceSettingsInput,
-  CodexLoginStatus,
-  CodexSessionDetail,
-  CodexSessionMessage,
-  CodexSessionSummary,
   PromptSettings,
   SpriteSheetUpload,
 } from "../shared/shimeji-api.js";
@@ -26,10 +18,12 @@ import { getPrimaryDesktopFloor } from "./display.js";
 import { DesktopWalker } from "./movement.js";
 import { buildDeveloperInstructions, getUserInstructions } from "./prompts.js";
 import {
+  archiveCodexThread,
   clearCodexThread,
-  forgetCodexThread,
-  getActiveCodexThreadId,
-  getKnownCodexThreadIds,
+  disposeChatResponder,
+  getCodexLoginStatus,
+  listCodexThreads,
+  readCodexThread,
   reloadChatResponder,
   respondToMessage,
   selectCodexThread,
@@ -51,10 +45,6 @@ const SettingsWindowWidth = 860;
 const SettingsWindowHeight = 680;
 const PreloadPath = fileURLToPath(new URL("./preload.cjs", import.meta.url));
 const RendererIndexPath = fileURLToPath(new URL("../../renderer/index.html", import.meta.url));
-const CodexCommandPath = join(process.cwd(), "node_modules", ".bin", "codex.cmd");
-const CodexSessionsRoot = join(homedir(), ".codex", "sessions");
-const MaxShownSessions = 100;
-const MaxShownSessionMessages = 80;
 
 let characterWindow: BrowserWindow | undefined;
 let chatWindow: BrowserWindow | undefined;
@@ -283,12 +273,6 @@ async function createCharacterWindow(): Promise<void> {
   screen.on("display-metrics-changed", updateCharacterFloor);
 }
 
-function createCodexEnvironment(): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-  };
-}
-
 function getPromptSettings(): PromptSettings {
   const config = readShimejiConfig();
   return {
@@ -356,299 +340,12 @@ async function openSettingsWindow(): Promise<void> {
   settingsWindow.focus();
 }
 
-function stripAnsi(text: string): string {
-  return text.replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, "");
-}
-
-async function getCodexLoginStatus(): Promise<CodexLoginStatus> {
-  return await new Promise((resolve) => {
-    execFile(
-      "cmd.exe",
-      ["/d", "/c", CodexCommandPath, "login", "status"],
-      {
-        cwd: process.cwd(),
-        env: createCodexEnvironment(),
-        windowsHide: true,
-        timeout: 15_000,
-      },
-      (error, stdout, stderr) => {
-        const output = stripAnsi(`${stdout}\n${stderr}`).trim();
-        resolve({
-          ok: error === null,
-          text: output.length > 0 ? output : error === null ? "Codex 로그인 상태를 확인했습니다." : "Codex 로그인 상태를 확인하지 못했습니다.",
-        });
-      },
-    );
-  });
-}
-
-async function collectSessionFiles(directory: string): Promise<string[]> {
-  let entries: Dirent[];
-  try {
-    entries = await readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-      return [];
-    }
-
-    throw error;
-  }
-
-  const nestedFiles = await Promise.all(
-    entries.map(async (entry) => {
-      const fullPath = join(directory, entry.name);
-      if (entry.isDirectory()) {
-        return await collectSessionFiles(fullPath);
-      }
-
-      return entry.isFile() && entry.name.endsWith(".jsonl") ? [fullPath] : [];
-    }),
-  );
-
-  return nestedFiles.flat();
-}
-
-async function readFirstLine(filePath: string): Promise<string> {
-  const file = await open(filePath, "r");
-  const buffer = Buffer.alloc(4096);
-  let firstLine = "";
-  let position = 0;
-
-  try {
-    while (true) {
-      const { bytesRead } = await file.read(buffer, 0, buffer.length, position);
-      if (bytesRead === 0) {
-        return firstLine;
-      }
-
-      position += bytesRead;
-      firstLine += buffer.subarray(0, bytesRead).toString("utf8");
-
-      const newlineIndex = firstLine.search(/\r?\n/);
-      if (newlineIndex >= 0) {
-        return firstLine.slice(0, newlineIndex);
-      }
-    }
-  } finally {
-    await file.close();
-  }
-}
-
-async function parseSessionSummary(
-  filePath: string,
-  fileStat: Awaited<ReturnType<typeof stat>>,
-  activeThreadId: string | undefined,
-): Promise<CodexSessionSummary | undefined> {
-  try {
-    const firstLine = await readFirstLine(filePath);
-    const meta = JSON.parse(firstLine) as {
-      payload?: {
-        id?: string;
-        timestamp?: string;
-        cwd?: string;
-        source?: string;
-      };
-    };
-    const id = meta.payload?.id;
-
-    if (id === undefined) {
-      return undefined;
-    }
-
-    return {
-      id,
-      filePath,
-      createdAt: meta.payload?.timestamp ?? fileStat.birthtime.toISOString(),
-      updatedAt: fileStat.mtime.toISOString(),
-      cwd: meta.payload?.cwd ?? "",
-      source: meta.payload?.source ?? "",
-      isActive: activeThreadId === id,
-    };
-  } catch (error) {
-    console.warn(`Could not parse Codex session: ${filePath}`, error);
-    return undefined;
-  }
-}
-
-function normalizePathForCompare(path: string): string {
-  return resolve(path).toLocaleLowerCase();
-}
-
-function getConfiguredCodexWorkingDirectory(): string {
-  const config = readShimejiConfig();
-  return process.env.SHIMEJI_CODEX_WORKDIR ?? config.codex?.workingDirectory ?? process.cwd();
-}
-
-async function listCodexSessions(): Promise<CodexSessionSummary[]> {
-  const activeThreadId = getActiveCodexThreadId();
-  const knownThreadIds = new Set(getKnownCodexThreadIds());
-  const targetWorkingDirectory = normalizePathForCompare(getConfiguredCodexWorkingDirectory());
-  const filePaths = await collectSessionFiles(CodexSessionsRoot);
-  const files = await Promise.all(
-    filePaths.map(async (filePath) => ({
-      filePath,
-      fileStat: await stat(filePath),
-    })),
-  );
-  const sessions: CodexSessionSummary[] = [];
-
-  files.sort((first, second) => second.fileStat.mtimeMs - first.fileStat.mtimeMs);
-
-  for (const file of files) {
-    const session = await parseSessionSummary(file.filePath, file.fileStat, activeThreadId);
-    if (
-      session !== undefined &&
-      session.cwd.length > 0 &&
-      knownThreadIds.has(session.id) &&
-      normalizePathForCompare(session.cwd) === targetWorkingDirectory
-    ) {
-      sessions.push(session);
-    }
-
-    if (sessions.length >= MaxShownSessions) {
-      break;
-    }
-  }
-
-  return sessions;
-}
-
-function assertSessionPathInsideRoot(filePath: string): void {
-  const root = resolve(CodexSessionsRoot);
-  const target = resolve(filePath);
-  const pathFromRoot = relative(root, target);
-
-  if (pathFromRoot.startsWith("..") || pathFromRoot === "" || pathFromRoot.includes(":")) {
-    throw new Error("Invalid Codex session path.");
-  }
-}
-
-async function findSessionById(id: string): Promise<CodexSessionSummary> {
-  const session = (await listCodexSessions()).find((candidate) => candidate.id === id);
-
-  if (session === undefined) {
-    throw new Error(`Codex session not found: ${id}`);
-  }
-
-  return session;
-}
-
 async function selectCodexSession(id: string): Promise<void> {
-  await findSessionById(id);
-  selectCodexThread(id);
+  await selectCodexThread(id);
 }
 
-async function deleteCodexSession(id: string): Promise<void> {
-  const session = await findSessionById(id);
-  assertSessionPathInsideRoot(session.filePath);
-  await unlink(session.filePath);
-
-  if (getActiveCodexThreadId() === id) {
-    clearCodexThread();
-  }
-
-  forgetCodexThread(id);
-}
-
-function textFromContent(content: unknown): string {
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (!Array.isArray(content)) {
-    return "";
-  }
-
-  return content
-    .map((item) => {
-      if (typeof item === "string") {
-        return item;
-      }
-
-      if (typeof item !== "object" || item === null) {
-        return "";
-      }
-
-      const record = item as Record<string, unknown>;
-      const text = record.text ?? record.input_text ?? record.output_text;
-      return typeof text === "string" ? text : "";
-    })
-    .filter((text) => text.length > 0)
-    .join("\n");
-}
-
-function createSessionMessageKey(message: CodexSessionMessage): string {
-  return `${message.role}\u0000${message.timestamp}\u0000${message.text}`;
-}
-
-function parseSessionMessages(filePath: string): CodexSessionMessage[] {
-  const messages: CodexSessionMessage[] = [];
-  const seenMessages = new Set<string>();
-  const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
-
-  function pushMessage(message: CodexSessionMessage): void {
-    const key = createSessionMessageKey(message);
-    if (seenMessages.has(key)) {
-      return;
-    }
-
-    seenMessages.add(key);
-    messages.push(message);
-  }
-
-  for (const line of lines) {
-    if (line.trim().length === 0) {
-      continue;
-    }
-
-    try {
-      const entry = JSON.parse(line) as {
-        timestamp?: string;
-        type?: string;
-        payload?: {
-          type?: string;
-          role?: string;
-          content?: unknown;
-          message?: string;
-        };
-      };
-      const role = entry.payload?.role;
-
-      if (entry.type === "response_item" && entry.payload?.type === "message" && (role === "user" || role === "assistant")) {
-        const text = textFromContent(entry.payload.content).trim();
-        if (text.length > 0) {
-          pushMessage({
-            role,
-            text,
-            timestamp: entry.timestamp ?? "",
-          });
-        }
-      } else if (entry.type === "event_msg" && entry.payload?.type === "user_message") {
-        const text = entry.payload.message?.trim();
-        if (text !== undefined && text.length > 0) {
-          pushMessage({
-            role: "user",
-            text,
-            timestamp: entry.timestamp ?? "",
-          });
-        }
-      }
-    } catch {
-      // Ignore malformed lines from old or partial session files.
-    }
-  }
-
-  return messages.slice(-MaxShownSessionMessages);
-}
-
-async function getCodexSessionDetail(id: string): Promise<CodexSessionDetail> {
-  const session = await findSessionById(id);
-  assertSessionPathInsideRoot(session.filePath);
-
-  return {
-    id,
-    messages: parseSessionMessages(session.filePath),
-  };
+async function archiveCodexSession(id: string): Promise<void> {
+  await archiveCodexThread(id);
 }
 
 async function openChatWindow(): Promise<void> {
@@ -820,23 +517,23 @@ function wireSettingsIpc(): void {
     return status;
   });
 
-  ipcMain.handle("codex-sessions-list", () => listCodexSessions());
+  ipcMain.handle("codex-sessions-list", () => listCodexThreads());
 
-  ipcMain.handle("codex-session-detail", (_event, id: string) => getCodexSessionDetail(id));
+  ipcMain.handle("codex-session-detail", (_event, id: string) => readCodexThread(id));
 
   ipcMain.handle("codex-session-select", async (_event, id: string) => {
     await selectCodexSession(id);
     walker?.speak({ text: "Codex 세션을 바꿨어." });
   });
 
-  ipcMain.handle("codex-session-clear", () => {
-    clearCodexThread();
+  ipcMain.handle("codex-session-clear", async () => {
+    await clearCodexThread();
     walker?.speak({ text: "새 Codex 세션으로 시작할게." });
   });
 
-  ipcMain.handle("codex-session-delete", async (_event, id: string) => {
-    await deleteCodexSession(id);
-    walker?.speak({ text: "Codex 세션을 삭제했어." });
+  ipcMain.handle("codex-session-archive", async (_event, id: string) => {
+    await archiveCodexSession(id);
+    walker?.speak({ text: "Codex 세션을 보관했어." });
   });
 
   ipcMain.handle("prompt-settings-get", () => getPromptSettings());
@@ -883,6 +580,7 @@ app.whenReady().then(createCharacterWindow);
 
 app.on("before-quit", () => {
   destroyWalker();
+  disposeChatResponder();
 });
 
 app.on("window-all-closed", () => {

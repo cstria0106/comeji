@@ -75,8 +75,8 @@ const api: ShimejiApi = {
   async clearCodexSession() {
     await ipcRenderer.invoke("codex-session-clear");
   },
-  async deleteCodexSession(id: string) {
-    await ipcRenderer.invoke("codex-session-delete", id);
+  async archiveCodexSession(id: string) {
+    await ipcRenderer.invoke("codex-session-archive", id);
   },
   async getPromptSettings() {
     return await ipcRenderer.invoke("prompt-settings-get");

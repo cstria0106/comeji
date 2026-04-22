@@ -75,7 +75,7 @@ export interface ShimejiApi {
   readonly getCodexSessionDetail: (id: string) => Promise<CodexSessionDetail>;
   readonly selectCodexSession: (id: string) => Promise<void>;
   readonly clearCodexSession: () => Promise<void>;
-  readonly deleteCodexSession: (id: string) => Promise<void>;
+  readonly archiveCodexSession: (id: string) => Promise<void>;
   readonly getPromptSettings: () => Promise<PromptSettings>;
   readonly savePromptSettings: (settings: PromptSettings) => Promise<void>;
   readonly getAppearanceSettings: () => Promise<AppearanceSettings>;

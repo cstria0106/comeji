@@ -251,20 +251,20 @@ function SettingsView(): React.JSX.Element {
     }
   }
 
-  async function deleteSession(sessionId: string): Promise<void> {
-    if (window.shimeji === undefined || !window.confirm("이 Codex 세션 파일을 삭제할까요?")) {
+  async function archiveSession(sessionId: string): Promise<void> {
+    if (window.shimeji === undefined || !window.confirm("이 Codex 세션을 보관할까요?")) {
       return;
     }
 
     setBusyAction(sessionId);
-    setStatusText("세션을 삭제하고 있어요.");
+    setStatusText("세션을 보관하고 있어요.");
     try {
-      await window.shimeji.deleteCodexSession(sessionId);
+      await window.shimeji.archiveCodexSession(sessionId);
       if (selectedSessionId === sessionId) {
         setSelectedSessionId(undefined);
         setMessages([]);
       }
-      setStatusText("세션을 삭제했어요.");
+      setStatusText("세션을 보관했어요.");
       await loadSessions();
     } finally {
       setBusyAction(undefined);
@@ -377,7 +377,7 @@ function SettingsView(): React.JSX.Element {
                     loading={loadingSessions}
                     busyAction={busyAction}
                     onSelect={(sessionId) => void selectSession(sessionId)}
-                    onDelete={(sessionId) => void deleteSession(sessionId)}
+                    onDelete={(sessionId) => void archiveSession(sessionId)}
                   />
                 </SectionCard>
                 <SectionCard title="세션 내용" description="선택한 세션의 최근 대화를 보여줘요." className="min-h-0">

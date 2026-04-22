@@ -11,9 +11,6 @@ importers:
       '@openai/codex':
         specifier: ^0.121.0
         version: 0.121.0
-      '@openai/codex-sdk':
-        specifier: ^0.121.0
-        version: 0.121.0
       '@radix-ui/react-tabs':
         specifier: ^1.1.13
         version: 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -123,10 +120,6 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
-
-  '@openai/codex-sdk@0.121.0':
-    resolution: {integrity: sha512-LfDbIBIrRYya6Y+zR8i5ci+wGx8zyTpzTy9iSeRTzZnb4N8Cn30cW+un1Vd2JfjoWhxGXcOTpXy8sSjlSeyvKA==}
-    engines: {node: '>=18'}
 
   '@openai/codex@0.121.0':
     resolution: {integrity: sha512-kCJ2NeATd4QBQRmqV04ymdN1ZU3MSwnJQDm/KzjpuzGvCuUVEn7no/T2mRyxQ2x77AACqriNOyPPoM/yufyvNg==}
@@ -1257,10 +1250,6 @@ snapshots:
       '@emnapi/runtime': 1.9.2
       '@tybys/wasm-util': 0.10.1
     optional: true
-
-  '@openai/codex-sdk@0.121.0':
-    dependencies:
-      '@openai/codex': 0.121.0
 
   '@openai/codex@0.121.0':
     optionalDependencies:
