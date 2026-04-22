@@ -85,6 +85,10 @@ type PendingRequest = {
   readonly reject: (error: Error) => void;
 };
 
+type AppServerRequestOptions = {
+  readonly timeoutMs?: number;
+};
+
 type ThreadItem =
   | {
       readonly type: "userMessage";
@@ -153,8 +157,8 @@ const MaxShownSessionMessages = 80;
 const MaxSessionListPages = 20;
 const CharacterModeApprovalPolicy: ApprovalPolicy = "never";
 const AgentModeApprovalPolicy: ApprovalPolicy = "on-request";
-const AppServerRequestTimeoutMs = 30_000;
-const TurnTimeoutMs = 45_000;
+const StatusRequestTimeoutMs = 30_000;
+const MaxStatusDetailLength = 96;
 
 export function respondToMessageLocally(input: string): string {
   const message = input.trim();
@@ -224,24 +228,31 @@ class CodexAppServerClient {
     return () => this.notificationListeners.delete(listener);
   }
 
-  public async request(method: string, params: unknown): Promise<unknown> {
+  public async request(method: string, params: unknown, options: AppServerRequestOptions = {}): Promise<unknown> {
     await this.start();
     const id = this.nextRequestId;
     this.nextRequestId += 1;
 
     return await new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        this.pendingRequests.delete(id);
-        reject(new Error(`Codex app-server request timed out: ${method}`));
-      }, AppServerRequestTimeoutMs);
+      const timeoutId =
+        options.timeoutMs === undefined
+          ? undefined
+          : setTimeout(() => {
+              this.pendingRequests.delete(id);
+              reject(new Error(`Codex app-server request timed out: ${method}`));
+            }, options.timeoutMs);
 
       this.pendingRequests.set(id, {
         resolve: (result) => {
-          clearTimeout(timeoutId);
+          if (timeoutId !== undefined) {
+            clearTimeout(timeoutId);
+          }
           resolve(result);
         },
         reject: (error) => {
-          clearTimeout(timeoutId);
+          if (timeoutId !== undefined) {
+            clearTimeout(timeoutId);
+          }
           reject(error);
         },
       });
@@ -249,7 +260,9 @@ class CodexAppServerClient {
       try {
         this.send({ method, id, params });
       } catch (error) {
-        clearTimeout(timeoutId);
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+        }
         this.pendingRequests.delete(id);
         reject(error instanceof Error ? error : new Error("Could not send Codex app-server request."));
       }
@@ -517,9 +530,13 @@ class CodexAppServerResponder implements ManagedChatResponder {
   }
 
   public async getLoginStatus(): Promise<CodexLoginStatus> {
-    const result = await this.client.request("account/read", {
-      refreshToken: false,
-    });
+    const result = await this.client.request(
+      "account/read",
+      {
+        refreshToken: false,
+      },
+      { timeoutMs: StatusRequestTimeoutMs },
+    );
     const account = isRecord(result) ? result.account : undefined;
 
     if (isRecord(account) && account.type === "chatgpt") {
@@ -562,7 +579,6 @@ class CodexAppServerResponder implements ManagedChatResponder {
 
     let finalResponse = "";
     let startedTurnId: string | undefined;
-    let settled = false;
 
     const completed = new Promise<string>((resolve, reject) => {
       const unsubscribe = this.client.onNotification((notification) => {
@@ -601,7 +617,6 @@ class CodexAppServerResponder implements ManagedChatResponder {
             return;
           }
 
-          settled = true;
           unsubscribe();
 
           if (params.turn.status === "failed") {
@@ -620,34 +635,11 @@ class CodexAppServerResponder implements ManagedChatResponder {
             return;
           }
 
-          settled = true;
           unsubscribe();
           const errorMessage = isRecord(params.error) && typeof params.error.message === "string" ? params.error.message : "Codex app-server error.";
           reject(new Error(errorMessage));
         }
       });
-
-      windowSetTimeout(async () => {
-        if (settled) {
-          return;
-        }
-
-        settled = true;
-        unsubscribe();
-
-        if (startedTurnId !== undefined) {
-          try {
-            await this.client.request("turn/interrupt", {
-              threadId,
-              turnId: startedTurnId,
-            });
-          } catch (error) {
-            console.warn("Could not interrupt timed out Codex turn.", error);
-          }
-        }
-
-        reject(new Error("Codex response timed out."));
-      }, TurnTimeoutMs);
     });
 
     const startResult = await this.client.request("turn/start", {
@@ -978,29 +970,90 @@ function getDefaultApprovalPolicy(mode: CodexMode): ApprovalPolicy {
   return mode === "agent" ? AgentModeApprovalPolicy : CharacterModeApprovalPolicy;
 }
 
-function createStatusMessage(item: { readonly type?: unknown }): SpeechMessage | undefined {
+function createStatusMessage(item: JsonObject): SpeechMessage | undefined {
   if (item.type === "reasoning") {
-    return { text: "생각중...", loading: true, status: "thinking" };
+    return { text: createDetailedStatusText("생각중", getFirstStringProperty(item, ["text", "summary"])), loading: true, status: "thinking" };
   }
 
   if (item.type === "commandExecution") {
-    return { text: "명령어 실행중...", loading: true, status: "command" };
+    return { text: createDetailedStatusText("명령어 실행중", getCommandStatusDetail(item)), loading: true, status: "command" };
   }
 
   if (item.type === "fileChange") {
-    return { text: "파일 변경중...", loading: true, status: "file" };
+    return { text: createDetailedStatusText("파일 변경중", getFileChangeStatusDetail(item)), loading: true, status: "file" };
   }
 
   if (item.type === "plan") {
-    return { text: "작업 순서 정리중...", loading: true, status: "todo" };
+    return { text: createDetailedStatusText("작업 순서 정리중", getPlanStatusDetail(item)), loading: true, status: "todo" };
   }
 
   if (item.type === "mcpToolCall" || item.type === "dynamicToolCall") {
-    return { text: "도구 호출중...", loading: true, status: "tool" };
+    return { text: createDetailedStatusText("도구 호출중", getToolStatusDetail(item)), loading: true, status: "tool" };
   }
 
   if (item.type === "webSearch") {
-    return { text: "검색중...", loading: true, status: "search" };
+    return { text: createDetailedStatusText("검색중", getFirstStringProperty(item, ["query"])), loading: true, status: "search" };
+  }
+
+  return undefined;
+}
+
+function createDetailedStatusText(prefix: string, detail: string | undefined): string {
+  const trimmedDetail = detail?.replace(/\s+/g, " ").trim();
+  if (trimmedDetail === undefined || trimmedDetail.length === 0) {
+    return `${prefix}...`;
+  }
+
+  return `${prefix}: ${truncateStatusDetail(trimmedDetail)}`;
+}
+
+function truncateStatusDetail(detail: string): string {
+  if (detail.length <= MaxStatusDetailLength) {
+    return detail;
+  }
+
+  return `${detail.slice(0, MaxStatusDetailLength - 1)}...`;
+}
+
+function getCommandStatusDetail(item: JsonObject): string | undefined {
+  return getFirstStringProperty(item, ["command", "cmd", "description"]);
+}
+
+function getFileChangeStatusDetail(item: JsonObject): string | undefined {
+  const changes = Array.isArray(item.changes) ? item.changes.filter(isRecord) : [];
+  const firstPath = changes.map((change) => getFirstStringProperty(change, ["path", "filePath"])).find((path) => path !== undefined);
+
+  if (firstPath === undefined) {
+    return getFirstStringProperty(item, ["path", "filePath", "summary"]);
+  }
+
+  const remainingCount = changes.length - 1;
+  return remainingCount > 0 ? `${firstPath} 외 ${remainingCount}개` : firstPath;
+}
+
+function getPlanStatusDetail(item: JsonObject): string | undefined {
+  const items = Array.isArray(item.items) ? item.items.filter(isRecord) : [];
+  const activeItem = items.find((planItem) => planItem.completed !== true);
+  return getFirstStringProperty(activeItem ?? item, ["text", "title", "summary"]);
+}
+
+function getToolStatusDetail(item: JsonObject): string | undefined {
+  const server = getFirstStringProperty(item, ["server", "serverName"]);
+  const tool = getFirstStringProperty(item, ["tool", "toolName", "name"]);
+
+  if (server !== undefined && tool !== undefined) {
+    return `${server}.${tool}`;
+  }
+
+  return tool ?? server ?? getFirstStringProperty(item, ["description"]);
+}
+
+function getFirstStringProperty(record: JsonObject, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
   }
 
   return undefined;
@@ -1093,10 +1146,6 @@ function getStringArray(value: unknown): string[] {
 
 function isRecord(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function windowSetTimeout(callback: () => void, timeoutMs: number): void {
-  setTimeout(callback, timeoutMs);
 }
 
 function readConfig(): ShimejiConfig {
