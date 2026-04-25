@@ -1,6 +1,7 @@
 node_modules/
 dist/
 release/
+build/codex/
 .tools/
 .comeji/
 comeji.config.json

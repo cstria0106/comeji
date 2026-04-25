@@ -1,16 +1,18 @@
 {
   "name": "comeji",
-  "version": "0.0.0-placeholder",
+  "version": "0.0.5",
   "private": true,
   "type": "module",
   "main": "dist/main/main/main.js",
   "scripts": {
     "dev": "pnpm run build:main && concurrently -k \"node .tools/dev-server.mjs\" \"wait-on .comeji/dev-server.json && electron . --dev\"",
-    "build": "pnpm run build:main && vite build",
+    "build": "pnpm run prepare:codex && pnpm run build:main && vite build",
     "build:main": "tsc -p tsconfig.main.json",
-    "dist": "pnpm run typecheck && pnpm run build && electron-builder --win portable",
+    "dist": "pnpm run update:codex && pnpm run typecheck && pnpm run build && electron-builder --win portable",
+    "prepare:codex": "node scripts/prepare-codex.mjs",
     "start": "pnpm run build && electron .",
-    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json"
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json",
+    "update:codex": "pnpm add @openai/codex@latest && pnpm run prepare:codex"
   },
   "build": {
     "appId": "local.comeji.app",
@@ -25,7 +27,7 @@
     ],
     "extraResources": [
       {
-        "from": "node_modules/.pnpm/@openai+codex@0.121.0-win32-x64/node_modules/@openai/codex/vendor/x86_64-pc-windows-msvc",
+        "from": "build/codex",
         "to": "codex"
       }
     ],
@@ -53,7 +55,7 @@
     "wait-on": "^9.0.5"
   },
   "dependencies": {
-    "@openai/codex": "^0.121.0",
+    "@openai/codex": "^0.125.0",
     "@radix-ui/react-tabs": "^1.1.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

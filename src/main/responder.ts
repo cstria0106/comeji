@@ -5,6 +5,7 @@ import { delimiter, dirname, extname, join } from "node:path";
 import readline from "node:readline";
 import type { SpeechMessage } from "../shared/character-state.js";
 import type { CodexLoginStatus, CodexSessionDetail, CodexSessionMessage, CodexSessionSummary } from "../shared/comeji-api.js";
+import { resolveCodexCommandPath } from "./codex-updater.js";
 import { ConfigFileName, getApplicationBaseDirectory, ComejiConfigPath, ComejiDataDirectory } from "./paths.js";
 import { buildDeveloperInstructions, getUserInstructions } from "./prompts.js";
 
@@ -44,6 +45,7 @@ type ComejiConfig = {
     approvalPolicy?: ApprovalPolicy;
     modelReasoningEffort?: ReasoningEffort;
     webSearchMode?: WebSearchMode;
+    autoUpdateCodexCli?: boolean;
   };
 };
 
@@ -146,6 +148,7 @@ type AppServerOptions = {
   readonly modelReasoningEffort: ReasoningEffort;
   readonly webSearchMode: WebSearchMode;
   readonly developerInstructions: string;
+  readonly autoUpdateCodexCli: boolean;
 };
 
 const EmptyMessageResponse = "말을 걸어주면 대답할게.";
@@ -278,7 +281,8 @@ class CodexAppServerClient {
   }
 
   private async startProcess(): Promise<void> {
-    const child = spawnCodexAppServer(this.options.commandPath);
+    const commandPath = await resolveCodexCommandPath(this.options.commandPath, this.options.autoUpdateCodexCli);
+    const child = spawnCodexAppServer(commandPath);
     this.process = child;
 
     child.stderr.on("data", (chunk: Buffer) => {
@@ -437,6 +441,7 @@ class CodexAppServerResponder implements ManagedChatResponder {
       modelReasoningEffort: codexConfig.modelReasoningEffort ?? "low",
       webSearchMode: codexConfig.webSearchMode ?? "disabled",
       developerInstructions: buildDeveloperInstructions(this.mode, getUserInstructions(codexConfig)),
+      autoUpdateCodexCli: codexConfig.autoUpdateCodexCli !== false && process.env.COMEJI_CODEX_PATH === undefined && codexConfig.codexPath === undefined,
     };
     this.client = new CodexAppServerClient(this.options);
   }
@@ -1148,6 +1153,59 @@ function isRecord(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function createChatErrorMessage(error: unknown): string {
+  const detail = extractErrorMessage(error);
+
+  if (detail.includes("requires a newer version of Codex")) {
+    return "AI 오류: 내장 Codex CLI가 오래되어 현재 모델을 사용할 수 없습니다. 최신 빌드로 업데이트가 필요합니다.";
+  }
+
+  if (detail.length === 0) {
+    return "AI 오류: Codex 응답을 가져오지 못했습니다. 설정과 로그인 상태를 확인해주세요.";
+  }
+
+  return `AI 오류: ${truncateStatusDetail(stripAnsi(detail))}`;
+}
+
+function extractErrorMessage(error: unknown): string {
+  const rawMessage = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  const trimmedMessage = rawMessage.trim();
+
+  if (trimmedMessage.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmedMessage) as unknown;
+      const parsedMessage = getNestedErrorMessage(parsed);
+      if (parsedMessage !== undefined) {
+        return parsedMessage;
+      }
+    } catch {
+      return trimmedMessage;
+    }
+  }
+
+  return trimmedMessage;
+}
+
+function getNestedErrorMessage(value: unknown): string | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  if (typeof value.message === "string") {
+    return value.message;
+  }
+
+  if (isRecord(value.error)) {
+    return getNestedErrorMessage(value.error);
+  }
+
+  return undefined;
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(/\u001b\[[0-9;]*m/g, "");
+}
+
 function readConfig(): ComejiConfig {
   try {
     const rawConfig = readFileSync(ComejiConfigPath, "utf8");
@@ -1183,8 +1241,8 @@ export async function respondToMessage(input: string, onUpdate?: (message: Speec
   try {
     return await chatResponder.respond(input, onUpdate);
   } catch (error) {
-    console.error("Chat responder failed; using local fallback.", error);
-    const response = respondToMessageLocally(input);
+    console.error("Chat responder failed.", error);
+    const response = createChatErrorMessage(error);
     onUpdate?.({ text: response, status: "message" });
     return response;
   }
